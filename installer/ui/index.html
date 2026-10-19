@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Onion Installer</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 0; padding: 20px; background: #1e1e24; color: #eee; }
+  h1 { font-size: 18px; margin: 0 0 16px; }
+  fieldset { border: 1px solid #444; border-radius: 6px; margin: 0 0 14px; padding: 10px 12px; }
+  legend { color: #aaa; padding: 0 6px; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  input[type=text], select { flex: 1; padding: 6px 8px; background: #2b2b33; color: #eee; border: 1px solid #555; border-radius: 4px; }
+  button { padding: 6px 14px; background: #3b82f6; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  button:disabled { background: #555; cursor: default; }
+  button.secondary { background: #444; }
+  #go { width: 100%; padding: 10px; font-size: 15px; margin-top: 4px; }
+  progress { width: 100%; height: 14px; }
+  #status { color: #bbb; min-height: 18px; }
+  #log { font: 12px monospace; color: #9a9; white-space: pre-wrap; max-height: 90px; overflow: auto; }
+  .warn { color: #f59e0b; }
+  .err { color: #f87171; }
+</style>
+</head>
+<body>
+<h1>Onion Installer</h1>
+
+<fieldset>
+  <legend>Cartão SD</legend>
+  <div class="row">
+    <input type="text" id="sd" placeholder="Ex.: F:\">
+    <button class="secondary" id="pickSd">Escolher…</button>
+  </div>
+  <div id="sdInfo" class="warn">Selecione a raiz do cartão SD.</div>
+</fieldset>
+
+<fieldset>
+  <legend>Origem</legend>
+  <div class="row">
+    <label><input type="radio" name="src" value="github" checked> GitHub</label>
+    <select id="repo">
+      <option value="Brunnexo/Onion">Brunnexo/Onion (fork)</option>
+      <option value="OnionUI/Onion">OnionUI/Onion (oficial)</option>
+    </select>
+    <button class="secondary" id="refresh">Atualizar lista</button>
+  </div>
+  <div class="row"><select id="releases"><option value="">(carregando…)</option></select></div>
+  <div class="row">
+    <label><input type="radio" name="src" value="file"> Arquivo .zip local</label>
+    <input type="text" id="zip" placeholder="Onion-vX.Y.Z.zip">
+    <button class="secondary" id="pickZip">Escolher…</button>
+  </div>
+</fieldset>
+
+<button id="go" disabled>Instalar</button>
+<div style="margin-top:10px"><progress id="bar" value="0" max="1"></progress></div>
+<div id="status"></div>
+<div id="log"></div>
+
+<script>
+const { invoke } = window.__TAURI__.core;
+const { open } = window.__TAURI__.dialog;
+const { listen } = window.__TAURI__.event;
+const $ = id => document.getElementById(id);
+const fmt = b => b > 1e9 ? (b / 1e9).toFixed(2) + ' GB' : (b / 1e6).toFixed(1) + ' MB';
+let releases = [];
+
+async function checkSd() {
+  const p = $('sd').value.trim();
+  if (!p) { $('sdInfo').textContent = 'Selecione a raiz do cartão SD.'; $('go').disabled = true; return; }
+  try {
+    const i = await invoke('sd_info', { path: p });
+    if (i.onion_installed) {
+      $('sdInfo').textContent = 'Onion instalado (' + (i.version || 'versão desconhecida') + ') — será atualizado.';
+      $('go').textContent = 'Atualizar';
+    } else {
+      $('sdInfo').textContent = 'Onion não encontrado — instalação nova (SD deve estar em FAT32).';
+      $('go').textContent = 'Instalar';
+    }
+    $('sdInfo').className = ''; $('go').disabled = false;
+  } catch (err) { $('sdInfo').textContent = err; $('sdInfo').className = 'err'; $('go').disabled = true; }
+}
+
+async function loadReleases() {
+  const sel = $('releases');
+  sel.innerHTML = '<option value="">(carregando…)</option>';
+  try {
+    releases = await invoke('list_releases', { repo: $('repo').value });
+    sel.innerHTML = releases.length ? '' : '<option value="">(nenhuma release com Onion-v*.zip)</option>';
+    releases.forEach((r, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = r.name + (r.prerelease ? ' (beta)' : '') + ' — ' + r.asset + ' (' + fmt(r.size) + ')';
+      sel.appendChild(o);
+    });
+  } catch (err) { sel.innerHTML = '<option value="">erro: ' + err + '</option>'; }
+}
+
+$('pickSd').onclick = async () => {
+  const d = await open({ directory: true, title: 'Raiz do cartão SD' });
+  if (d) { $('sd').value = d; checkSd(); }
+};
+$('sd').onchange = checkSd;
+$('pickZip').onclick = async () => {
+  const f = await open({ filters: [{ name: 'Onion zip', extensions: ['zip'] }] });
+  if (f) { $('zip').value = f; document.querySelector('input[value=file]').checked = true; }
+};
+$('refresh').onclick = loadReleases;
+$('repo').onchange = loadReleases;
+
+listen('progress', ev => {
+  const p = ev.payload;
+  $('bar').max = p.total || 1; $('bar').value = p.done;
+  $('status').textContent = p.phase === 'download'
+    ? 'Baixando… ' + fmt(p.done) + (p.total ? ' / ' + fmt(p.total) : '')
+    : 'Copiando para o SD… ' + p.done + '/' + p.total;
+  if (p.msg) $('log').textContent = p.msg;
+});
+
+$('go').onclick = async () => {
+  const useFile = document.querySelector('input[name=src]:checked').value === 'file';
+  const r = releases[$('releases').value];
+  const args = { sd: $('sd').value.trim(), url: useFile ? null : (r && r.url), file: useFile ? $('zip').value : null };
+  if (!args.url && !args.file) { $('status').textContent = 'Escolha uma versão ou um arquivo .zip.'; return; }
+  $('go').disabled = true; $('status').className = ''; $('log').textContent = '';
+  try {
+    const msg = await invoke('install', args);
+    $('status').textContent = msg + '. Ejete o SD com segurança e ligue o Miyoo: o instalador do Onion termina na primeira inicialização.';
+    $('bar').value = $('bar').max;
+  } catch (err) { $('status').textContent = 'Erro: ' + err; $('status').className = 'err'; }
+  $('go').disabled = false; checkSd();
+};
+
+loadReleases();
+</script>
+</body>
+</html>
