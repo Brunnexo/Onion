@@ -1,0 +1,6 @@
+{
+	"label": "ROM Downloader",
+	"icon": "/mnt/SDCARD/Icons/Default/app/otaupdate.png",
+	"launch": "launch.sh",
+	"description": "Browse and download ROMs (romgi catalog)"
+}
