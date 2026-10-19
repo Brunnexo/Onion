@@ -134,21 +134,9 @@ static void job_status(char *out, size_t out_size)
         strcpy(out + 57, "...");
 }
 
-static void platforms_arg(char *out, size_t out_size)
-{
-    out[0] = '\0';
-    for (int i = 0; i < PLATFORM_COUNT; i++) {
-        strncat(out, PLATFORMS[i].id, out_size - strlen(out) - 1);
-        strncat(out, " ", out_size - strlen(out) - 1);
-    }
-}
-
 static void catalog_update(void)
 {
-    char ids[1024], cmd[2048];
-    platforms_arg(ids, sizeof(ids));
-    snprintf(cmd, sizeof(cmd), "sh " SYSDIR "/script/romdb_update.sh %s", ids);
-    job_start(JOB_CATALOG, "Catalog update", cmd);
+    job_start(JOB_CATALOG, "Catalog update", "sh " SYSDIR "/script/romdb_update.sh");
 }
 
 static void download_start(Link *link)

@@ -10,7 +10,7 @@ fetched with `curl`; torrent links with the bundled static `aria2c`
 | Path | Role |
 |---|---|
 | `src/romDownloader/` | SDL app (`romDownloader.c`, platform map in `platforms.h`) |
-| `.tmp_update/script/romdb_update.sh` | Downloads `romdb.db.gz`, trims to supported platforms, VACUUMs |
+| `.tmp_update/script/romdb_update.sh` | Downloads the pre-filtered catalog from the `onion-romdb` repo (URL override: `.tmp_update/config/romdl_catalog_url`) |
 | `.tmp_update/script/rom_fetch.sh` | Fetches one ROM (http or torrent), optional 7z extract |
 | `.tmp_update/script/romdl_common.sh` | Wi-Fi bring-up + size watcher, sourced by both |
 | `.tmp_update/romdb/romdb.db` | Trimmed catalog (created on device) |
@@ -30,8 +30,9 @@ by killing the script's process group.
 1. Build: `make with-toolchain CMD="core"` (or just `cd src/romDownloader && make` inside the toolchain) and copy `build/.tmp_update/bin/romDownloader`, the three scripts, `bin/aria2c` and `script/torrent_dl.sh` to the SD card.
 2. Install the package from Package Manager > Apps > "ROM Downloader (romgi)".
 3. With Wi-Fi configured, launch the app. First run shows "Catalog update" and
-   downloads ~55 MB, extracts (~345 MB temp), trims. Expect several minutes;
-   `du -m .tmp_update/romdb/romdb.db` afterwards should be well under 100 MB.
+   downloads ~11 MB, extracts to ~72 MB (`.tmp_update/romdb/romdb.db`).
+   The catalog itself is built by `onion-romdb/scripts/filter_romgi.py`;
+   its platform list must match `src/romDownloader/platforms.h`.
 4. Open "Game Boy Advance", R1 a few times to jump letters, pick a small game,
    choose the torrent link, confirm. Dialog should show aria2 progress
    (`[#... DL:...]`) and end with "Done". Check `Roms/GBA/<file>.zip`.
