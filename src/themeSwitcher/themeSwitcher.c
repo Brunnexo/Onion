@@ -23,7 +23,7 @@ void showCenteredMessage(SDL_Surface *video, SDL_Surface *screen,
                          const char *message_str, TTF_Font *font,
                          SDL_Color color)
 {
-    SDL_Surface *message = TTF_RenderUTF8_Blended(font, message_str, color);
+    SDL_Surface *message = TTF_RenderUTF8_Blended(font, lang_tr(message_str), color);
     SDL_Rect loadingRect = {320 - message->w / 2, 240 - message->h / 2};
     SDL_FillRect(screen, NULL, 0);
     SDL_BlitSurface(message, NULL, screen, &loadingRect);
@@ -47,7 +47,7 @@ SDL_Surface *createBottomBar(TTF_Font *font)
     pos.x += surfaceButtonA->w + 10;
 
     SDL_Surface *text =
-        TTF_RenderUTF8_Blended(font, "INSTALL", (SDL_Color){255, 255, 255});
+        TTF_RenderUTF8_Blended(font, lang_tr("INSTALL"), (SDL_Color){255, 255, 255});
     pos.y = 35 - text->h / 2 - 3;
     SDL_BlitSurface(text, NULL, surface, &pos);
     pos.x += text->w + 20;
@@ -57,7 +57,7 @@ SDL_Surface *createBottomBar(TTF_Font *font)
     SDL_BlitSurface(surfaceButtonB, NULL, surface, &pos);
     pos.x += surfaceButtonB->w + 10;
 
-    text = TTF_RenderUTF8_Blended(font, "CANCEL", (SDL_Color){255, 255, 255});
+    text = TTF_RenderUTF8_Blended(font, lang_tr("CANCEL"), (SDL_Color){255, 255, 255});
     pos.y = 35 - text->h / 2 - 3;
     SDL_BlitSurface(text, NULL, surface, &pos);
     pos.x += text->w + 20;
@@ -67,7 +67,7 @@ SDL_Surface *createBottomBar(TTF_Font *font)
     SDL_BlitSurface(surfaceButtonX, NULL, surface, &pos);
     pos.x += surfaceButtonX->w + 10;
 
-    text = TTF_RenderUTF8_Blended(font, "TOGGLE ICONS",
+    text = TTF_RenderUTF8_Blended(font, lang_tr("TOGGLE ICONS"),
                                   (SDL_Color){255, 255, 255});
     pos.y = 35 - text->h / 2 - 3;
     SDL_BlitSurface(text, NULL, surface, &pos);
@@ -108,6 +108,7 @@ SDL_Surface *getPreviewIcon(const char *path, SDL_Surface *file_zip,
 int main(int argc, char *argv[])
 {
     settings_load();
+    lang_load();
     const char *installed_theme = basename(settings.theme);
 
     bool reapply = false;
@@ -390,7 +391,7 @@ int main(int argc, char *argv[])
 
             rectThemeName.x = 60;
             char msg[STR_MAX];
-            sprintf(msg, "%s [%s]", has_icons ? "Apply icons" : "Reset icons", apply_icons ? "ON" : "OFF");
+            sprintf(msg, "%s [%s]", lang_tr(has_icons ? "Apply icons" : "Reset icons"), lang_tr(apply_icons ? "ON" : "OFF"));
             imagePages = TTF_RenderUTF8_Blended(font21, msg, color_white);
             SDL_BlitSurface(imagePages, NULL, screen, &rectThemeName);
             SDL_FreeSurface(imagePages);

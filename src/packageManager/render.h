@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include "system/keymap_sw.h"
+#include "system/lang.h"
 #include "utils/keystate.h"
 #include "utils/surfaceSetAlpha.h"
 
@@ -69,7 +70,7 @@ void displayLayersNames(void)
 void renderFooter(const char *footer_str)
 {
     SDL_Surface *footer =
-        TTF_RenderUTF8_Blended(font18, footer_str, color_white);
+        TTF_RenderUTF8_Blended(font18, lang_tr(footer_str), color_white);
     surfaceSetAlpha(footer, 120);
     SDL_Rect footer_rect = {320 - footer->w / 2, 414};
     SDL_BlitSurface(footer, NULL, screen, &footer_rect);
@@ -216,7 +217,7 @@ void renderTabName(const char *name, int x, alignment_e alignment, bool active,
                    bool has_changes)
 {
     char name_str[STR_MAX];
-    snprintf(name_str, STR_MAX - 1, has_changes ? "%s*" : "%s", name);
+    snprintf(name_str, STR_MAX - 1, has_changes ? "%s*" : "%s", lang_tr(name));
 
     SDL_Surface *tab_name =
         TTF_RenderUTF8_Blended(active ? font25 : font18, name_str, color_white);
@@ -305,7 +306,7 @@ void renderApplication(void)
         }
         else {
             SDL_Surface *status = TTF_RenderUTF8_Blended(
-                font35, "NO CHANGES", color_white);
+                font35, lang_tr("NO CHANGES"), color_white);
             SDL_Rect status_rect = {
                 alignCoord(320, status->w, ALIGN_CENTER),
                 alignCoord(247, status->h, ALIGN_CENTER)};

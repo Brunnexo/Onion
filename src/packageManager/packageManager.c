@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    lang_load();
     initResources();
 
     if (!auto_update) {
@@ -75,6 +76,7 @@ int main(int argc, char *argv[])
 #endif
 
     freeResources();
+    lang_free();
 
     return EXIT_SUCCESS;
 }

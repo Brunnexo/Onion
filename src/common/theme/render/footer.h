@@ -13,9 +13,9 @@ void theme_renderStandardHint(SDL_Surface *screen, const char *btn_a_str,
 
     if (!theme()->hideLabels.hints) {
         if (btn_a_str != NULL)
-            strncpy(label_a_str, btn_a_str, STR_MAX - 1);
+            strncpy(label_a_str, lang_tr(btn_a_str), STR_MAX - 1);
         if (btn_b_str != NULL)
-            strncpy(label_b_str, btn_b_str, STR_MAX - 1);
+            strncpy(label_b_str, lang_tr(btn_b_str), STR_MAX - 1);
     }
 
     SDL_Rect btn_a_rect = {offsetX, 450.0 * g_scale};

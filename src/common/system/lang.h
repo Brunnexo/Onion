@@ -14,6 +14,7 @@
 #define LANG_DIR "/mnt/SDCARD/miyoo/app/lang"
 #define LANG_DIR_FALLBACK "/customer/app/lang"
 #define LANG_DIR_BACKUP "/mnt/SDCARD/miyoo/app/lang_backup"
+#define LANG_TR_DIR "/mnt/SDCARD/.tmp_update/lang"
 
 #define LANG_FALLBACK_SELECT "SELECT"
 #define LANG_FALLBACK_BACK "BACK"
@@ -36,6 +37,7 @@
 #define LANG_FALLBACK_ADVANCED "Advanced"
 
 static char **lang_list = NULL;
+static cJSON *lang_tr_root = NULL;
 
 typedef enum {
     LANG_EXPERT_TAB = 0,
@@ -173,6 +175,13 @@ bool lang_load(void)
 
     cJSON_Delete(lang_file);
 
+    // Onion UI strings: English-keyed table, e.g. LANG_TR_DIR/pt-BR.json
+    char tr_path[STR_MAX];
+    snprintf(tr_path, STR_MAX - 1, LANG_TR_DIR "/%.*s.json",
+             (int)strcspn(settings.language, "."), settings.language);
+    if (exists(tr_path))
+        lang_tr_root = json_load(tr_path);
+
     return true;
 }
 
@@ -184,6 +193,11 @@ void lang_free(void)
         free(lang_list[i]);
     }
     free(lang_list);
+    lang_list = NULL;
+    if (lang_tr_root) {
+        cJSON_Delete(lang_tr_root);
+        lang_tr_root = NULL;
+    }
 }
 
 const char *lang_get(lang_hash key, const char *fallback)
@@ -191,6 +205,18 @@ const char *lang_get(lang_hash key, const char *fallback)
     if (lang_list && lang_list[key])
         return lang_list[key];
     return fallback;
+}
+
+// Translate a hardcoded English UI string; returns input when no entry.
+// ponytail: linear cJSON lookup per rendered string, hash it if render lags
+const char *lang_tr(const char *str)
+{
+    if (!lang_tr_root || !str || !str[0])
+        return str;
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(lang_tr_root, str);
+    if (cJSON_IsString(item) && item->valuestring[0])
+        return item->valuestring;
+    return str;
 }
 
 #endif // SYSTEM_LANG_H__

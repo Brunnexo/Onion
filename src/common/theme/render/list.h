@@ -14,6 +14,7 @@ void theme_renderListLabel(SDL_Surface *screen, const char *label, SDL_Color fg,
 {
     TTF_Font *list_font = resource_getFont(LIST);
 
+    label = lang_tr(label);
     SDL_Surface *item_label = TTF_RenderUTF8_Blended(list_font, label, fg);
     SDL_Rect item_label_rect = {offset_x, center_y - item_label->h / 2};
 
@@ -160,7 +161,7 @@ void theme_renderListCustom(SDL_Surface *screen, List *list, ListRenderParams_s 
 
             char value_str[STR_MAX];
             list_getItemValueLabel(item, value_str);
-            SDL_Surface *value_label = TTF_RenderUTF8_Blended(list_font, value_str, theme()->list.color);
+            SDL_Surface *value_label = TTF_RenderUTF8_Blended(list_font, lang_tr(value_str), theme()->list.color);
             if (show_disabled) {
                 surfaceSetAlpha(value_label, HIDDEN_ITEM_ALPHA);
             }

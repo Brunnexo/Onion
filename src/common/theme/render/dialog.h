@@ -32,6 +32,8 @@ int __get_font_size()
 
 void theme_renderDialog(SDL_Surface *screen, const char *title_str, const char *message_str, bool show_hint)
 {
+    title_str = lang_tr(title_str);
+    message_str = lang_tr(message_str);
     SDL_Surface *transparent_bg = SDL_CreateRGBSurface(0, g_display.width, g_display.height, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
     SDL_FillRect(transparent_bg, NULL, /* 33.3% transparent black */ 0x55000000);
     SDL_BlitSurface(transparent_bg, NULL, screen, NULL);
@@ -143,7 +145,7 @@ void theme_renderInfoPanel(SDL_Surface *screen, const char *title_str, const cha
         char message_newline[4096];
         strcpy(message_newline, message_str);
         char *str = str_replace(message_newline, "\\n", "\n");
-        message = theme_textboxSurface(str, resource_getFont(TITLE), theme()->list.color, ALIGN_CENTER);
+        message = theme_textboxSurface(lang_tr(str), resource_getFont(TITLE), theme()->list.color, ALIGN_CENTER);
         if (message) {
             SDL_Rect message_rect = {(g_display.width) / 2, (g_display.height) / 2};
             message_rect.x -= message->w / 2;

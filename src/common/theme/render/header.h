@@ -42,7 +42,7 @@ void theme_renderHeader(SDL_Surface *screen, const char *title_str, bool show_lo
     }
 
     if (title_str) {
-        SDL_Surface *title = TTF_RenderUTF8_Blended(resource_getFont(TITLE), title_str, theme()->title.color);
+        SDL_Surface *title = TTF_RenderUTF8_Blended(resource_getFont(TITLE), lang_tr(title_str), theme()->title.color);
         if (title) {
             SDL_Rect title_rect = {(g_display.width - title->w) / 2, 29.0 * g_scale - title->h / 2};
             SDL_Rect title_bg = {title_rect.x - 10.0 * g_scale, 0, title->w + 20.0 * g_scale, 60.0 * g_scale};
