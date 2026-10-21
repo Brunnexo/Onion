@@ -116,12 +116,12 @@ get_release_info() {
 
 	# Github source api url
 	if [ "$channel" = "beta" ]; then
-		Release_assets_info=$(curl -k -s https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/latest)
+		Release_assets_info=$(curl -k -s "https://api.github.com/repos/$GITHUB_REPOSITORY/releases?per_page=1" | jq '.[0]')
 	else
 		Release_assets_info=$(curl -k -s https://api.github.com/repos/$GITHUB_REPOSITORY/releases/latest)
 	fi
 
-	if echo "$Release_assets_info" | grep -q '"message": "Not Found"'; then
+	if [ "$Release_assets_info" = "null" ] || [ "$Release_assets_info" = "" ] || echo "$Release_assets_info" | grep -q '"message": "Not Found"'; then
 		echo -e "${GREEN}DONE${NC}\n\n" \
 			"No update available for $channel channel\n"
 		return 1

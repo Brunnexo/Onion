@@ -44,8 +44,8 @@ jobs:
     - uses: marvinpinto/action-automatic-releases@latest
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        automatic_release_tag: latest
+        automatic_release_tag: "v${{ env.BUILD_VERSION }}-${{ env.SHA_SHORT }}"
         prerelease: true
-        title: "Onion V${{ env.BUILD_VERSION }}"
+        title: "Onion V${{ env.BUILD_VERSION }}-${{ env.SHA_SHORT }}"
         files: |
           release/Onion-v${{ env.BUILD_VERSION }}-${{ env.SHA_SHORT }}.zip
