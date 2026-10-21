@@ -10,13 +10,16 @@ YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
 NC='\033[0m' # No Color
 
-# Repository name :
-GITHUB_REPOSITORY=OnionUI/Onion
+# Repository name (override with $sysdir/config/ota_repo):
+GITHUB_REPOSITORY=$(cat "$sysdir/config/ota_repo" 2> /dev/null)
+if [ "$GITHUB_REPOSITORY" == "" ]; then
+	GITHUB_REPOSITORY=Brunnexo/Onion
+fi
 
 # channel : stable or beta
 channel=$(cat "$sysdir/config/ota_channel" 2> /dev/null)
 if [ "$channel" == "" ]; then
-	channel="stable"
+	channel="beta" # the fork only publishes the "latest" pre-release
 fi
 
 main() {
@@ -99,7 +102,7 @@ check_connection() {
 }
 
 run_bootstrap() {
-	curl -k -s https://raw.githubusercontent.com/OnionUI/Onion/main/static/build/.tmp_update/script/ota_bootstrap.sh | sh
+	curl -k -s https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/static/build/.tmp_update/script/ota_bootstrap.sh | sh
 }
 
 channel_choice() {
