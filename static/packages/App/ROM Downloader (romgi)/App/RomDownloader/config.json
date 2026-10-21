@@ -1,6 +1,7 @@
 {
 	"label": "Download de ROMs",
 	"icon": "/mnt/SDCARD/Icons/Default/app/otaupdate.png",
+	"iconfallback": "pacman",
 	"launch": "launch.sh",
 	"description": "Baixar jogos pelo Wi-Fi"
 }

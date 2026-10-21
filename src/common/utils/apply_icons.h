@@ -149,6 +149,20 @@ bool _apply_singleIconFromPack(const char *config_path,
     sprintf(icon_path, icons_getIconPathFormat(mode), icon_pack_path,
             icon_name);
 
+    // Optional "iconfallback": another icon name to take from the pack when it
+    // does not ship this one, so third-party themes stay consistent for apps
+    // they do not know about.
+    char fallback[STR_MAX];
+    if (!is_file(icon_path) && json_getString(config, "iconfallback", fallback)) {
+        char alt_path[STR_MAX];
+        sprintf(alt_path, icons_getIconPathFormat(mode), icon_pack_path, fallback);
+        if (is_file(alt_path)) {
+            strcpy(icon_path, alt_path);
+            free(icon_name);
+            icon_name = strdup(fallback);
+        }
+    }
+
     if (!is_file(icon_path)) {
         if (reset_default) {
             sprintf(icon_path, icons_getIconPathFormat(mode), ICON_PACK_DEFAULT,
