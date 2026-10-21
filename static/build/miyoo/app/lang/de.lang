@@ -157,5 +157,6 @@
 	"154": "Verbindung fehlgeschlagen\nÜberprüfe das Passwort\nOder starte Router neu",
 	"155": "Webseite",
 	"300": "Nächste",
-	"301": "Fortsetzen"
+	"301": "Fortsetzen",
+	"302": "Allow remote access"
 }

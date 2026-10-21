@@ -157,5 +157,6 @@
 	"154": "Fail to connect\nCheck your password\nOr reboot router",
 	"155": "Website",
 	"300": "পরবর্তী",
-	"301": "চালিয়ে যান"
+	"301": "চালিয়ে যান",
+	"302": "Allow remote access"
 }

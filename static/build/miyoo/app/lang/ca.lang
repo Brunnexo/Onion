@@ -157,5 +157,6 @@
 	"154": "Error al connectar-se\nRevisa la contrasenya\nO reinicia el router.",
 	"155": "Lloc web",
 	"300": "SEGÜENT",
-	"301": "CONTINUA"
+	"301": "CONTINUA",
+	"302": "Allow remote access"
 }

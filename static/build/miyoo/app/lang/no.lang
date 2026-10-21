@@ -157,5 +157,6 @@
 	"154": "Tilkobling mislyktes\nSjekk passordet\neller restart routeren din",
 	"155": "Nettside",
 	"300": "NESTE",
-	"301": "FORTSETT"
+	"301": "FORTSETT",
+	"302": "Allow remote access"
 }

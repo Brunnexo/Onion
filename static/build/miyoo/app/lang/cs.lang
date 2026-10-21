@@ -157,5 +157,6 @@
 	"154": "Připojení selhalo\nZkontrolujte údaje\nNebo restartujte router",
 	"155": "Web",
 	"300": "DALŠÍ",
-	"301": "POKRAČOVAT"
+	"301": "POKRAČOVAT",
+	"302": "Allow remote access"
 }

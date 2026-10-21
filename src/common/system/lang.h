@@ -62,7 +62,8 @@ typedef enum {
     LANG_EXIT = 111,
     LANG_SAVE_EXIT = 112,
     LANG_NEXT = 300,
-    LANG_RESUME_UC = 301
+    LANG_RESUME_UC = 301,
+    LANG_REMOTE_ACCESS = 302
 } lang_hash;
 
 void lang_removeIconLabels(bool remove_icon_labels, bool remove_hints)

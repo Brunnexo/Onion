@@ -157,5 +157,6 @@
 	"154": "Impossibile connettersi\nControlla la tua password\noppure riavvia il router",
 	"155": "Sito web",
 	"300": "Prossimo",
-	"301": "Riprendere"
+	"301": "Riprendere",
+	"302": "Allow remote access"
 }

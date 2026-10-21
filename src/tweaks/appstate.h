@@ -24,6 +24,7 @@ static List _menu_http;
 static List _menu_ssh;
 static List _menu_smbd;
 static List _menu_vnc;
+static List _menu_remote;
 
 void menu_network_free_all(void)
 {
@@ -36,6 +37,7 @@ void menu_network_free_all(void)
     list_free(&_menu_ssh);
     list_free(&_menu_smbd);
     list_free(&_menu_vnc);
+    list_free(&_menu_remote);
 }
 
 static List _menu_icons;

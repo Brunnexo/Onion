@@ -157,5 +157,6 @@
   "154": "Yhteyden muodostaminen epäonnistui\nTarkista salasana\nTai uudelleenkäynnistä reititin",
   "155": "Nettisivu",
   "300": "SEURAAVA",
-  "301": "JATKA"
+  "301": "JATKA",
+  "302": "Allow remote access"
 }

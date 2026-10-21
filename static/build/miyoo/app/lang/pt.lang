@@ -157,5 +157,6 @@
 	"154": "Falha a ligar à rede\nVerifique a palavra-passe\nOu reinicie o router",
 	"155": "Website",
 	"300": "PRÓXIMO",
-	"301": "CONTINUAR"
+	"301": "CONTINUAR",
+	"302": "Permitir acesso remoto"
 }

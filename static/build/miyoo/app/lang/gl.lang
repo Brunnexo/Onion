@@ -157,5 +157,6 @@
 	"154": "Erro ao conectarse\nComproba o teu contrasinal\nOu reinicia o router",
 	"155": "Sitio web",
 	"300": "Próximo",
-	"301": "Reanudar"
+	"301": "Reanudar",
+	"302": "Allow remote access"
 }

@@ -11,7 +11,7 @@ export PATH="$sysdir/bin:$PATH"
 is_booting=$([ -f /tmp/is_booting ] && echo 1 || echo 0)
 
 # add service flags here to be remembered when wifi change is detected
-services="httpState ftpState smbdState sshState authsshState authftpState authhttpState"
+services="httpState ftpState smbdState sshState authsshState authftpState authhttpState remoteState"
 
 logfile=$(basename "$0" .sh)
 . $sysdir/script/log.sh
@@ -24,7 +24,7 @@ main() {
         check) # called by runtime.sh::check_networking
             check
             ;;
-        ftp | telnet | http | ssh | smbd)
+        ftp | telnet | http | ssh | smbd | remote)
             service=$1
             case "$2" in
                 toggle)
@@ -82,6 +82,7 @@ check() {
     check_telnetstate &
     check_httpstate &
     check_smbdstate &
+    check_remotestate &
 
     if [ "$is_booting" -eq 1 ]; then
         if [ "$has_wifi" -eq 0 ]; then
@@ -124,12 +125,14 @@ disable_all_services() {
     disable_flag httpState
     disable_flag authhttpState
     disable_flag smbdState
+    disable_flag remoteState
 
     for process in dropbear bftpd filebrowser telnetd hostapd dnsmasq smbd; do
         if is_running $process; then
             killall -9 $process
         fi
     done
+    stop_remote
 }
 
 # Core function
@@ -308,6 +311,35 @@ ssh_authed() {
             dropbear -R -B
         fi
     fi
+}
+
+# Keeps the reverse SSH tunnel to the relay (remote_tunnel.sh) up if the toggle is set to on.
+# The tunnel leads to dropbear, so SSH is switched on with it.
+check_remotestate() {
+    if flag_enabled remoteState; then
+        if is_running_exact remote_tunnel.sh; then
+            if wifi_disabled; then
+                log "Remote: Wifi is turned off, disabling the toggle for remote access and killing the tunnel"
+                disable_flag remoteState
+                stop_remote
+            fi
+        elif wifi_enabled; then
+            enable_flag sshState
+            check_sshstate
+            log "Remote: Starting tunnel"
+            $netscript/remote_tunnel.sh &
+        else
+            disable_flag remoteState
+        fi
+    elif is_running_exact remote_tunnel.sh || is_running dbclient; then
+        stop_remote
+        log "Remote: Killed"
+    fi
+}
+
+stop_remote() {
+    pkill -9 -f remote_tunnel.sh
+    killall -9 dbclient 2> /dev/null
 }
 
 # Starts telnet if the toggle is set to on
@@ -634,7 +666,7 @@ restore_state() {
     [ ! -f "$jsonfile" ] && return
     log "Network Checker: Restoring state from $jsonfile"
 
-    grep -E '"(httpState|ftpState|smbdState|sshState|authsshState|authftpState|authhttpState)":\s*"[01]"' "$jsonfile" | while IFS=":" read -r key value; do
+    grep -E '"(httpState|ftpState|smbdState|sshState|authsshState|authftpState|authhttpState|remoteState)":\s*"[01]"' "$jsonfile" | while IFS=":" read -r key value; do
         key=$(echo "$key" | tr -d ' "{}')
         value=$(echo "$value" | tr -d ' ",')
 
@@ -687,8 +719,8 @@ is_noauth_enabled() { # Used to check authMethod val for HTTPFS
 }
 
 print_usage() {
-    echo "Usage: $0 {check|ftp|telnet|http|ssh|smbd|disableall|save|restore|full_reset} [toggle|authed]"
-    echo "       - For {ftp|telnet|http|ssh|smbd}, [toggle|authed] can be specified."
+    echo "Usage: $0 {check|ftp|telnet|http|ssh|smbd|remote|disableall|save|restore|full_reset} [toggle|authed]"
+    echo "       - For {ftp|telnet|http|ssh|smbd|remote}, [toggle|authed] can be specified."
     echo "       - Commands {ntp|hotspot} only accept 'toggle'."
     echo "       - Commands {save|restore|full_reset} do not require additional args."
     echo "e.g:"

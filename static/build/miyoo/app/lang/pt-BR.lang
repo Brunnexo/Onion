@@ -157,5 +157,6 @@
     "154": "Erro ao conectar\nVerifique sua senha\nOu reinicie seu roteador",
     "155": "Site",
     "300": "PRÓXIMO",
-    "301": "CONTINUAR"
+    "301": "CONTINUAR",
+    "302": "Permitir acesso remoto"
 }

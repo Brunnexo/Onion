@@ -157,5 +157,6 @@
 	"154": "Nepavyko prisijungti\nPatikrinkite slaptažodį\nArba paleiskite maršrutizatorių iš naujo",
 	"155": "Svetainė",
 	"300": "KITAS",
-	"301": "TĘSTI"
+	"301": "TĘSTI",
+	"302": "Allow remote access"
 }

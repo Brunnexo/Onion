@@ -157,5 +157,6 @@
 	"154": "Błąd połączenia\nSprawdź swoje hasło\nLub zrestartuj router",
 	"155": "Strona internetowa",
 	"300": "DALEJ",
-	"301": "WZNÓW"
+	"301": "WZNÓW",
+	"302": "Allow remote access"
 }

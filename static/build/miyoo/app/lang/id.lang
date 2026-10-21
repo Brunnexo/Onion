@@ -157,5 +157,6 @@
 	"154": "Gagal sambung\nPeriksa sandi\nAtau hidupkan ulang router",
 	"155": "Situs Web",
 	"300": "LANJUT",
-	"301": "ULANG"
+	"301": "ULANG",
+	"302": "Allow remote access"
 }

@@ -25,6 +25,7 @@
 
 #define NET_SCRIPT_PATH "/mnt/SDCARD/.tmp_update/script/network"
 #define SMBD_CONFIG_PATH "/mnt/SDCARD/.tmp_update/config/smb.conf"
+#define REMOTE_RELAY_PATH "/mnt/SDCARD/.tmp_update/config/remote_relay"
 
 static struct network_s {
     bool smbd;
@@ -43,6 +44,7 @@ static struct network_s {
     bool check_updates;
     bool keep_alive;
     bool vncserv;
+    bool remote;
     bool loaded;
     bool force_wifi_on_startup;
     int vncfps;
@@ -71,6 +73,7 @@ void network_loadState(void)
     network_state.check_updates = config_flag_get(".checkUpdates");
     network_state.keep_alive = config_flag_get(".keepServicesAlive");
     network_state.vncserv = config_flag_get(".vncServer");
+    network_state.remote = config_flag_get(".remoteState");
     config_get(".vncfps", CONFIG_INT, &network_state.vncfps);
     network_state.loaded = true;
 }
@@ -262,6 +265,35 @@ void network_setHttpState(void *pt)
 void network_setSshState(void *pt)
 {
     network_commonEnableToggle(&_menu_ssh, (ListItem *)pt, &network_state.ssh, "ssh", ".sshState");
+}
+
+// "Relay: user@host:port/tunnel" (password hidden) and tunnel state
+void network_remoteLabels(void)
+{
+    char code[STR_MAX] = "";
+    FILE *fp = fopen(REMOTE_RELAY_PATH, "r");
+    if (fp) {
+        if (fgets(code, STR_MAX - 1, fp)) {
+            code[strcspn(code, "\r\n")] = '\0';
+            char *at = strrchr(code, '@');
+            char *colon = strchr(code, ':');
+            if (at && colon && colon < at)
+                memmove(colon, at, strlen(at) + 1); // drop ":password"
+        }
+        fclose(fp);
+    }
+    snprintf(_menu_remote.items[1].label, STR_MAX - 1, "%s %s", lang_tr("Relay:"), code[0] ? code : lang_tr("not paired"));
+    strcpy(_menu_remote.items[2].label, process_isRunning("dbclient") ? "Tunnel: connected" : "Tunnel: off");
+}
+
+void network_setRemoteState(void *pt)
+{
+    ListItem *item = (ListItem *)pt;
+    if (item->value == 1 && !network_state.ssh)
+        network_setState(&network_state.ssh, ".sshState", true); // the tunnel leads to dropbear
+    network_commonEnableToggle(&_menu_remote, item, &network_state.remote, "remote", ".remoteState");
+    if (_menu_remote._created)
+        network_remoteLabels();
 }
 
 void network_setFtpState(void *pt)
@@ -560,6 +592,28 @@ void menu_ssh(void *pt)
     header_changed = true;
 }
 
+void menu_remote(void *pt)
+{
+    ListItem *item = (ListItem *)pt;
+    item->value = (int)network_state.remote;
+    if (!_menu_remote._created) {
+        _menu_remote = list_create(3, LIST_SMALL);
+        strcpy(_menu_remote.title, "Remote access");
+        list_addItemWithInfoNote(&_menu_remote,
+                                 (ListItem){
+                                     .label = "Enable",
+                                     .item_type = TOGGLE,
+                                     .value = (int)network_state.remote,
+                                     .action = network_setRemoteState},
+                                 item->info_note);
+        list_addItem(&_menu_remote, (ListItem){.disabled = true, .action = NULL});
+        list_addItem(&_menu_remote, (ListItem){.disabled = true, .action = NULL});
+    }
+    network_remoteLabels();
+    menu_stack[++menu_level] = &_menu_remote;
+    header_changed = true;
+}
+
 void menu_vnc(void *pt)
 {
     ListItem *item = (ListItem *)pt;
@@ -632,7 +686,7 @@ void menu_wifi(void *_)
 void menu_network(void *_)
 {
     if (!_menu_network._created) {
-        _menu_network = list_create(9, LIST_SMALL);
+        _menu_network = list_create(10, LIST_SMALL);
         strcpy(_menu_network.title, "Network");
 
         network_loadState();
@@ -722,6 +776,23 @@ void menu_network(void *_)
                                      .action = menu_vnc},
                                  "Connect to your MMP from another device\n"
                                  "to view the screen and interact with it.");
+        ListItem *remote_item = list_addItemWithInfoNote(&_menu_network,
+                                                         (ListItem){
+                                                             .label = "Allow remote access",
+                                                             .item_type = TOGGLE,
+                                                             .disabled = !settings.wifi_on,
+                                                             .alternative_arrow_action = true,
+                                                             .arrow_action = network_setRemoteState,
+                                                             .value = (int)network_state.remote,
+                                                             .action = menu_remote},
+                                                         "Keep an outbound SSH tunnel to your own relay\n"
+                                                         "server so the Onion Remote app on your PC can\n"
+                                                         "reach this device from anywhere, with no port\n"
+                                                         "forwarding. Turns SSH on.\n"
+                                                         " \n"
+                                                         "Pair from the app over Wi-Fi, or write the\n"
+                                                         "relay into .tmp_update/config/remote_relay");
+        strncpy(remote_item->label, lang_get(LANG_REMOTE_ACCESS, "Allow remote access"), STR_MAX - 1);
         list_addItemWithInfoNote(&_menu_network,
                                  (ListItem){
                                      .label = "Disable services in game",

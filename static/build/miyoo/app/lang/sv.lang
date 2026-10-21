@@ -157,5 +157,6 @@
 	"154": "Misslyckades att ansluta\nKontrollera lösenordet\neller starta om routern",
 	"155": "Webbplats",
 	"300": "NÄSTA",
-	"301": "FORTSÄTT"
+	"301": "FORTSÄTT",
+	"302": "Allow remote access"
 }

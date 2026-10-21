@@ -401,5 +401,11 @@
     "Client save returned!": "Save do cliente devolvido!",
     "The client has had a problem joining the session.": "O cliente teve um problema ao entrar na sessão.",
     "The client advises they don't have this rom \n Can't continue.": "O cliente informa que não tem esta ROM \n Não é possível continuar.",
-    "Add your screenscraper account ?": "Adicionar sua conta do ScreenScraper?"
+    "Add your screenscraper account ?": "Adicionar sua conta do ScreenScraper?",
+    "Allow remote access": "Permitir acesso remoto",
+    "Remote access": "Acesso remoto",
+    "not paired": "não pareado",
+    "Tunnel: connected": "Túnel: conectado",
+    "Tunnel: off": "Túnel: desligado",
+    "Keep an outbound SSH tunnel to your own relay\nserver so the Onion Remote app on your PC can\nreach this device from anywhere, with no port\nforwarding. Turns SSH on.\n \nPair from the app over Wi-Fi, or write the\nrelay into .tmp_update/config/remote_relay": "Mantém um túnel SSH de saída para o seu\nservidor relay, para o app Onion Remote no PC\nacessar este aparelho de qualquer lugar, sem\nabrir portas no roteador. Liga o SSH.\n \nPareie pelo app via Wi-Fi ou grave o relay\nem .tmp_update/config/remote_relay"
 }

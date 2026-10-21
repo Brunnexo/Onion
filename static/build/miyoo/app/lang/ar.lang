@@ -157,5 +157,6 @@
 	"154": "Fail to connect\nCheck your password\nOr reboot router",
 	"155": "Website",
 	"300": "التالي",
-	"301": "استفمر"
+	"301": "استفمر",
+	"302": "Allow remote access"
 }

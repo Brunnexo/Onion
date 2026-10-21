@@ -157,5 +157,6 @@
 	"154": "Échec de la connexion.\nVérifiez le mot de passe\nou redémarrez le routeur",
 	"155": "Website",
 	"300": "Suivant",
-	"301": "Reprendre"
+	"301": "Reprendre",
+	"302": "Allow remote access"
 }
