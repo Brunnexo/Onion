@@ -21,11 +21,14 @@ enable_wifi() {
     return 1
 }
 
-# Print growing size of $1 every second while pid $2 is alive.
+# Print "P:<bytes>" (size of file $1, or of the newest file matching -name $3
+# under dir $1 when $3 is given) every second while pid $2 is alive.
 watch_size() {
     while kill -0 "$2" 2>/dev/null; do
-        s=$(stat -c %s "$1" 2>/dev/null || echo 0)
-        echo "$((s / 1048576)) MB"
+        f=$1
+        [ -n "$3" ] && f=$(find "$1" -type f -name "$3" 2>/dev/null | head -n 1)
+        s=$(stat -c %s "$f" 2>/dev/null || echo 0)
+        echo "P:$s"
         sleep 1
     done
 }

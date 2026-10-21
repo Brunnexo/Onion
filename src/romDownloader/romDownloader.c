@@ -40,7 +40,13 @@ typedef struct {
     char filename[STR_MAX];
     char size_str[32];
     char torrent_path[1024];
+    long long size;
 } Link;
+
+// Download progress parsed from "P:<bytes>" status lines.
+static long long prog_done = 0, prog_total = 0, prog_prev = 0;
+static double prog_speed = 0; // bytes/s
+static uint32_t prog_prev_ticks = 0;
 
 enum { SCREEN_PLATFORMS,
        SCREEN_GAMES,
@@ -125,12 +131,17 @@ static void job_status(char *out, size_t out_size)
     if (!fp)
         return;
     char line[512], last[512] = "", aria[512] = "";
+    long long done = -1;
     while (fgets(line, sizeof(line), fp)) {
         char *p = line + strlen(line);
         while (p > line && (p[-1] == '\n' || p[-1] == '\r'))
             *--p = '\0';
         if (line[0] == '\0')
             continue;
+        if (line[0] == 'P' && line[1] == ':') {
+            done = atoll(line + 2);
+            continue;
+        }
         strcpy(last, line);
         if (line[0] == '[' && line[1] == '#')
             strcpy(aria, line);
@@ -138,10 +149,23 @@ static void job_status(char *out, size_t out_size)
             aria[0] = '\0';
     }
     fclose(fp);
+    if (done >= 0) {
+        uint32_t now = SDL_GetTicks();
+        if (prog_prev_ticks && now > prog_prev_ticks && done >= prog_prev)
+            prog_speed = 0.7 * prog_speed + 0.3 * ((done - prog_prev) * 1000.0 / (now - prog_prev_ticks));
+        prog_prev = done;
+        prog_prev_ticks = now;
+        prog_done = done;
+    }
     strncpy(out, aria[0] ? aria : last, out_size - 1);
     out[out_size - 1] = '\0';
-    if (strlen(out) > 60)
-        strcpy(out + 57, "...");
+    if (strlen(out) > 36)
+        strcpy(out + 33, "...");
+}
+
+static void fmt_mb(char *out, size_t n, long long bytes)
+{
+    snprintf(out, n, "%.1f MB", bytes / 1048576.0);
 }
 
 static void catalog_update(void)
@@ -161,6 +185,10 @@ static void download_start(Link *link)
     snprintf(cmd, sizeof(cmd), "sh " SYSDIR "/script/rom_fetch.sh %s %s %s %s %s %d",
              link->torrent_path[0] ? "torrent" : "http", q_url, q_dest, q_name, q_tpath,
              cur_platform->extract ? 1 : 0);
+    prog_done = prog_prev = 0;
+    prog_total = link->size;
+    prog_speed = 0;
+    prog_prev_ticks = 0;
     job_start(JOB_DOWNLOAD, "Downloading", cmd);
 }
 
@@ -362,7 +390,7 @@ static void open_game(ListItem *game)
     list_links = list_createWithTitle(MAX_LINKS, LIST_SMALL, cur_title);
 
     sqlite3_stmt *st;
-    const char *sql = "SELECT name, url, filename, coalesce(size_str, ''), coalesce(torrent_file_path, '') "
+    const char *sql = "SELECT name, url, filename, coalesce(size_str, ''), coalesce(torrent_file_path, ''), coalesce(size, 0) "
                       "FROM links WHERE entry = ? AND type = 'Game' AND requires_auth = 0 ORDER BY name";
     if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
         return;
@@ -375,6 +403,7 @@ static void open_game(ListItem *game)
         strncpy(l->filename, (const char *)sqlite3_column_text(st, 2), STR_MAX - 1);
         strncpy(l->size_str, (const char *)sqlite3_column_text(st, 3), sizeof(l->size_str) - 1);
         strncpy(l->torrent_path, (const char *)sqlite3_column_text(st, 4), sizeof(l->torrent_path) - 1);
+        l->size = sqlite3_column_int64(st, 5);
         ListItem item = {.action_id = n};
         snprintf(item.label, STR_MAX, "%.180s  %.31s  (%s)", l->filename, l->size_str,
                  l->torrent_path[0] ? "torrent" : "http");
@@ -425,9 +454,35 @@ static void render(void)
     else if (job != JOB_NONE) {
         char status[128], msg[256];
         job_status(status, sizeof(status));
-        snprintf(msg, sizeof(msg), "%s\n \n%s", lang_tr(status[0] ? status : "Starting..."),
-                 job == JOB_DOWNLOAD ? lang_tr("B: cancel") : " ");
-        theme_renderDialogProgress(screen, job_title, msg, false);
+        if (job == JOB_DOWNLOAD && prog_done > 0) {
+            char done_s[32], total_s[32], speed_s[32];
+            fmt_mb(done_s, sizeof(done_s), prog_done);
+            fmt_mb(total_s, sizeof(total_s), prog_total);
+            if (prog_speed >= 1048576.0)
+                snprintf(speed_s, sizeof(speed_s), "%.1f MB/s", prog_speed / 1048576.0);
+            else
+                snprintf(speed_s, sizeof(speed_s), "%.0f KB/s", prog_speed / 1024.0);
+            if (prog_total > 0)
+                snprintf(msg, sizeof(msg), "%s / %s  (%d%%)\n%s\n \n%s", done_s, total_s,
+                         (int)(100 * prog_done / prog_total), speed_s, lang_tr("B: cancel"));
+            else
+                snprintf(msg, sizeof(msg), "%s\n%s\n \n%s", done_s, speed_s, lang_tr("B: cancel"));
+            theme_renderDialog(screen, job_title, msg, false);
+            // progress bar where the theme draws its dots
+            int w = 240 * g_scale, h = 10 * g_scale;
+            SDL_Rect bar = {(g_display.width - w) / 2, 225 * g_scale - h / 2, w, h};
+            SDL_FillRect(screen, &bar, SDL_MapRGB(screen->format, 0x40, 0x40, 0x40));
+            if (prog_total > 0) {
+                SDL_Color c = theme()->grid.color;
+                SDL_Rect fill = {bar.x, bar.y, (Uint16)(w * (prog_done > prog_total ? 1.0 : (double)prog_done / prog_total)), h};
+                SDL_FillRect(screen, &fill, SDL_MapRGB(screen->format, c.r, c.g, c.b));
+            }
+        }
+        else {
+            snprintf(msg, sizeof(msg), "%s\n \n%s", lang_tr(status[0] ? status : "Starting..."),
+                     job == JOB_DOWNLOAD ? lang_tr("B: cancel") : " ");
+            theme_renderDialogProgress(screen, job_title, msg, false);
+        }
     }
     else if (result_open) {
         theme_renderDialog(screen, job_title, result_msg, false);

@@ -54,7 +54,12 @@ if [ -n "$want" ]; then
 fi
 
 # shellcheck disable=SC2086
-"$aria2c" $opts $select "$torrent"
+"$aria2c" $opts $select "$torrent" &
+if [ -n "$want" ]; then
+    . "$sysdir/script/romdl_common.sh"
+    watch_size "$tmp" $! "$(basename "$want")"
+fi
+wait $!
 rc=$?
 [ $rc -eq 0 ] || { echo "aria2c failed ($rc)"; exit $rc; }
 
