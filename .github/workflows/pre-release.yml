@@ -1,4 +1,4 @@
-name: Pre-release
+name: Release
 
 on:
   # push:
@@ -14,8 +14,8 @@ permissions:
   contents: write
 
 jobs:
-  pre-release:
-    name: Pre-release
+  release:
+    name: Release
     runs-on: ubuntu-latest
     container:
       image: aemiii91/miyoomini-toolchain:latest
@@ -45,7 +45,7 @@ jobs:
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         automatic_release_tag: "v${{ env.BUILD_VERSION }}-${{ env.SHA_SHORT }}"
-        prerelease: true
+        prerelease: false
         title: "Onion V${{ env.BUILD_VERSION }}-${{ env.SHA_SHORT }}"
         files: |
           release/Onion-v${{ env.BUILD_VERSION }}-${{ env.SHA_SHORT }}.zip

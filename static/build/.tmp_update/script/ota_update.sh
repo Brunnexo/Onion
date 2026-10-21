@@ -19,7 +19,7 @@ fi
 # channel : stable or beta
 channel=$(cat "$sysdir/config/ota_channel" 2> /dev/null)
 if [ "$channel" == "" ]; then
-	channel="beta" # the fork only publishes the "latest" pre-release
+	channel="stable"
 fi
 
 main() {
