@@ -26,4 +26,7 @@ if [ "$extract" = "1" ]; then
             ;;
     esac
 fi
+# MainUI lists ROMs from a per-folder cache: drop it so the new file shows up
+# (same files reset_list.sh removes).
+rm -f "$dest/$(basename "$dest")_cache2.db" "$dest/$(basename "$dest")_cache6.db" 2> /dev/null
 echo "Saved to ${dest#/mnt/SDCARD/}"
