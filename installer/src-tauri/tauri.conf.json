@@ -9,7 +9,7 @@
   "app": {
     "withGlobalTauri": true,
     "windows": [
-      { "title": "Onion Installer", "width": 600, "height": 560, "resizable": true }
+      { "title": "Onion Installer", "width": 640, "height": 640, "minWidth": 560, "minHeight": 600, "resizable": true, "theme": "Dark", "center": true }
     ],
     "security": { "csp": null }
   },

@@ -2,96 +2,178 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Onion Installer</title>
 <style>
-  body { font: 14px system-ui, sans-serif; margin: 0; padding: 20px; background: #1e1e24; color: #eee; }
-  h1 { font-size: 18px; margin: 0 0 16px; }
-  fieldset { border: 1px solid #444; border-radius: 6px; margin: 0 0 14px; padding: 10px 12px; }
-  legend { color: #aaa; padding: 0 6px; }
+  :root {
+    --purple: #7147c2;
+    --purple-light: #9a7ae0;
+    --purple-dark: #4f2f93;
+    --bg: #141320;
+    --card: #1e1b2e;
+    --card-border: #2e2a44;
+    --text: #ece9f7;
+    --muted: #9b95b5;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; padding: 0 0 20px;
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: radial-gradient(1200px 500px at 50% -200px, #2a2047 0%, var(--bg) 60%);
+    color: var(--text);
+    user-select: none;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 22px 28px 14px;
+  }
+  header img { height: 42px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .sub strong { color: var(--text); font-weight: 600; font-size: 15px; display: block; }
+  main { padding: 0 28px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .card h2 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--purple-light);
+  }
   .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
-  input[type=text], select { flex: 1; padding: 6px 8px; background: #2b2b33; color: #eee; border: 1px solid #555; border-radius: 4px; }
-  button { padding: 6px 14px; background: #3b82f6; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
-  button:disabled { background: #555; cursor: default; }
-  button.secondary { background: #444; }
-  #go { width: 100%; padding: 10px; font-size: 15px; margin-top: 4px; }
-  progress { width: 100%; height: 14px; }
-  #status { color: #bbb; min-height: 18px; }
-  #log { font: 12px monospace; color: #9a9; white-space: pre-wrap; max-height: 90px; overflow: auto; }
-  .warn { color: #f59e0b; }
-  .err { color: #f87171; }
+  .row label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  input[type=text], select {
+    flex: 1; min-width: 0; padding: 8px 10px; font: inherit;
+    background: #14121f; color: var(--text); border: 1px solid var(--card-border); border-radius: 8px;
+    outline: none;
+  }
+  input[type=text]:focus, select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(113,71,194,.25); }
+  input[type=radio] { accent-color: var(--purple); }
+  button {
+    padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--purple); color: #fff; border: 0; border-radius: 8px;
+    transition: background .15s, transform .05s;
+  }
+  button:hover { background: var(--purple-light); }
+  button:active { transform: translateY(1px); }
+  button:disabled { background: #3a3652; color: #8a86a3; cursor: default; transform: none; }
+  button.secondary { background: #2c2842; color: var(--text); }
+  button.secondary:hover { background: #3a3556; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 4px; min-height: 18px; }
+  .hint.ok { color: var(--ok); } .hint.warn { color: var(--warn); } .hint.err { color: var(--err); }
+  .meta { display: flex; gap: 14px; color: var(--muted); font-size: 13px; margin-top: 6px; flex-wrap: wrap; }
+  .meta span b { color: var(--text); font-weight: 600; }
+  #go {
+    width: 100%; padding: 12px; font-size: 15px; border-radius: 10px;
+    background: linear-gradient(180deg, var(--purple-light), var(--purple));
+    box-shadow: 0 6px 18px rgba(113,71,194,.35);
+  }
+  #go:hover { background: linear-gradient(180deg, #ab8ff0, var(--purple-light)); }
+  #go:disabled { background: #3a3652; box-shadow: none; }
+  .progress { height: 10px; background: #14121f; border-radius: 99px; overflow: hidden; border: 1px solid var(--card-border); }
+  .progress div { height: 100%; width: 0; background: linear-gradient(90deg, var(--purple-dark), var(--purple-light)); transition: width .2s; }
+  #status { margin-top: 8px; min-height: 20px; }
+  #log { font: 12px/1.4 Consolas, monospace; color: var(--muted); white-space: pre-wrap; max-height: 60px; overflow: auto; margin-top: 4px; }
+  footer { padding: 6px 28px 0; color: var(--muted); font-size: 12px; text-align: center; }
 </style>
 </head>
 <body>
-<h1>Onion Installer</h1>
+<header>
+  <img src="logo.png" alt="Onion">
+  <div class="sub"><strong>Instalador</strong>Instale ou atualize o Onion OS no cartão SD do Miyoo Mini</div>
+</header>
 
-<fieldset>
-  <legend>Cartão SD</legend>
-  <div class="row">
-    <input type="text" id="sd" placeholder="Ex.: F:\">
-    <button class="secondary" id="pickSd">Escolher…</button>
-  </div>
-  <div id="sdInfo" class="warn">Selecione a raiz do cartão SD.</div>
-</fieldset>
+<main>
+  <section class="card">
+    <h2>Cartão SD</h2>
+    <div class="row">
+      <input type="text" id="sd" placeholder="Ex.: F:\">
+      <button class="secondary" id="pickSd">Escolher…</button>
+    </div>
+    <div id="sdInfo" class="hint warn">Selecione a raiz do cartão SD.</div>
+  </section>
 
-<fieldset>
-  <legend>Origem</legend>
-  <div class="row">
-    <label><input type="radio" name="src" value="github" checked> GitHub</label>
-    <select id="repo">
-      <option value="Brunnexo/Onion">Brunnexo/Onion (fork)</option>
-      <option value="OnionUI/Onion">OnionUI/Onion (oficial)</option>
-    </select>
-    <button class="secondary" id="refresh">Atualizar lista</button>
-  </div>
-  <div class="row"><select id="releases"><option value="">(carregando…)</option></select></div>
-  <div class="row">
-    <label><input type="radio" name="src" value="file"> Arquivo .zip local</label>
-    <input type="text" id="zip" placeholder="Onion-vX.Y.Z.zip">
-    <button class="secondary" id="pickZip">Escolher…</button>
-  </div>
-</fieldset>
+  <section class="card">
+    <h2>Versão</h2>
+    <div class="row">
+      <label><input type="radio" name="src" value="github" checked> GitHub</label>
+      <select id="repo">
+        <option value="Brunnexo/Onion">Brunnexo/Onion (fork)</option>
+        <option value="OnionUI/Onion">OnionUI/Onion (oficial)</option>
+      </select>
+      <button class="secondary" id="refresh">Atualizar lista</button>
+    </div>
+    <div class="row"><select id="releases"><option value="">(carregando…)</option></select></div>
+    <div class="meta" id="relMeta"></div>
+    <div class="row" style="margin-top:10px">
+      <label><input type="radio" name="src" value="file"> Arquivo .zip local</label>
+      <input type="text" id="zip" placeholder="Onion-vX.Y.Z-sha.zip">
+      <button class="secondary" id="pickZip">Escolher…</button>
+    </div>
+  </section>
 
-<button id="go" disabled>Instalar</button>
-<div style="margin-top:10px"><progress id="bar" value="0" max="1"></progress></div>
-<div id="status"></div>
-<div id="log"></div>
+  <button id="go" disabled>Instalar</button>
+
+  <section class="card">
+    <div class="progress"><div id="bar"></div></div>
+    <div id="status" class="hint"></div>
+    <div id="log"></div>
+  </section>
+</main>
+<footer>Após copiar, o cartão é renomeado com a versão e o instalador do Onion conclui na primeira inicialização do Miyoo.</footer>
 
 <script>
 const { invoke } = window.__TAURI__.core;
-const { open } = window.__TAURI__.dialog;
+const { open, ask } = window.__TAURI__.dialog;
 const { listen } = window.__TAURI__.event;
 const $ = id => document.getElementById(id);
 const fmt = b => b > 1e9 ? (b / 1e9).toFixed(2) + ' GB' : (b / 1e6).toFixed(1) + ' MB';
+const fmtDate = iso => iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '?';
+const relVersion = r => r.asset.replace(/^Onion-v/, '').replace(/\.zip$/, '');
 let releases = [];
+
+function setStatus(text, cls) { $('status').textContent = text; $('status').className = 'hint ' + (cls || ''); }
+function setBar(frac) { $('bar').style.width = Math.max(0, Math.min(1, frac)) * 100 + '%'; }
 
 async function checkSd() {
   const p = $('sd').value.trim();
-  if (!p) { $('sdInfo').textContent = 'Selecione a raiz do cartão SD.'; $('go').disabled = true; return; }
+  if (!p) { $('sdInfo').textContent = 'Selecione a raiz do cartão SD.'; $('sdInfo').className = 'hint warn'; $('go').disabled = true; return; }
   try {
     const i = await invoke('sd_info', { path: p });
     if (i.onion_installed) {
       $('sdInfo').textContent = 'Onion instalado (' + (i.version || 'versão desconhecida') + ') — será atualizado.';
       $('go').textContent = 'Atualizar';
     } else {
-      $('sdInfo').textContent = 'Onion não encontrado — instalação nova (SD deve estar em FAT32).';
+      $('sdInfo').textContent = 'Onion não encontrado — instalação nova (o cartão deve estar em FAT32).';
       $('go').textContent = 'Instalar';
     }
-    $('sdInfo').className = ''; $('go').disabled = false;
-  } catch (err) { $('sdInfo').textContent = err; $('sdInfo').className = 'err'; $('go').disabled = true; }
+    $('sdInfo').className = 'hint ok'; $('go').disabled = false;
+  } catch (err) { $('sdInfo').textContent = err; $('sdInfo').className = 'hint err'; $('go').disabled = true; }
+}
+
+function showRelMeta() {
+  const r = releases[$('releases').value];
+  $('relMeta').innerHTML = r
+    ? `<span>Compilada em <b>${fmtDate(r.published_at)}</b></span><span>Tamanho <b>${fmt(r.size)}</b></span><span>Arquivo <b>${r.asset}</b></span>${r.prerelease ? '<span><b>beta</b></span>' : ''}`
+    : '';
 }
 
 async function loadReleases() {
   const sel = $('releases');
-  sel.innerHTML = '<option value="">(carregando…)</option>';
+  sel.innerHTML = '<option value="">(carregando…)</option>'; $('relMeta').innerHTML = '';
   try {
     releases = await invoke('list_releases', { repo: $('repo').value });
     sel.innerHTML = releases.length ? '' : '<option value="">(nenhuma release com Onion-v*.zip)</option>';
     releases.forEach((r, i) => {
       const o = document.createElement('option');
       o.value = i;
-      o.textContent = r.name + (r.prerelease ? ' (beta)' : '') + ' — ' + r.asset + ' (' + fmt(r.size) + ')';
+      o.textContent = `${relVersion(r)}${r.prerelease ? ' (beta)' : ''}  —  ${fmtDate(r.published_at)}`;
       sel.appendChild(o);
     });
+    showRelMeta();
   } catch (err) { sel.innerHTML = '<option value="">erro: ' + err + '</option>'; }
 }
 
@@ -106,27 +188,35 @@ $('pickZip').onclick = async () => {
 };
 $('refresh').onclick = loadReleases;
 $('repo').onchange = loadReleases;
+$('releases').onchange = () => { showRelMeta(); document.querySelector('input[value=github]').checked = true; };
 
 listen('progress', ev => {
   const p = ev.payload;
-  $('bar').max = p.total || 1; $('bar').value = p.done;
-  $('status').textContent = p.phase === 'download'
+  setBar(p.total ? p.done / p.total : 0);
+  setStatus(p.phase === 'download'
     ? 'Baixando… ' + fmt(p.done) + (p.total ? ' / ' + fmt(p.total) : '')
-    : 'Copiando para o SD… ' + p.done + '/' + p.total;
+    : 'Copiando para o cartão… ' + p.done + '/' + p.total);
   if (p.msg) $('log').textContent = p.msg;
 });
 
 $('go').onclick = async () => {
   const useFile = document.querySelector('input[name=src]:checked').value === 'file';
   const r = releases[$('releases').value];
-  const args = { sd: $('sd').value.trim(), url: useFile ? null : (r && r.url), file: useFile ? $('zip').value : null };
-  if (!args.url && !args.file) { $('status').textContent = 'Escolha uma versão ou um arquivo .zip.'; return; }
-  $('go').disabled = true; $('status').className = ''; $('log').textContent = '';
+  const sd = $('sd').value.trim();
+  const args = { sd, url: useFile ? null : (r && r.url), file: useFile ? $('zip').value : null };
+  if (!args.url && !args.file) { setStatus('Escolha uma versão ou um arquivo .zip.', 'warn'); return; }
+  $('go').disabled = true; $('log').textContent = ''; setBar(0); setStatus('Iniciando…');
   try {
     const msg = await invoke('install', args);
-    $('status').textContent = msg + '. Ejete o SD com segurança e ligue o Miyoo: o instalador do Onion termina na primeira inicialização.';
-    $('bar').value = $('bar').max;
-  } catch (err) { $('status').textContent = 'Erro: ' + err; $('status').className = 'err'; }
+    setBar(1);
+    setStatus(msg + '. O instalador do Onion termina na primeira inicialização do Miyoo.', 'ok');
+    const doEject = await ask('Atualização concluída.\n\n' + msg + '.\n\nEjetar o cartão com segurança agora?',
+      { title: 'Onion Installer', kind: 'info', okLabel: 'Ejetar', cancelLabel: 'Agora não' });
+    if (doEject) {
+      try { await invoke('eject', { path: sd }); setStatus('Cartão ejetado. Pode remover e ligar o Miyoo.', 'ok'); }
+      catch (err) { setStatus('Não foi possível ejetar: ' + err + '. Remova pelo sistema.', 'warn'); }
+    }
+  } catch (err) { setStatus('Erro: ' + err, 'err'); }
   $('go').disabled = false; checkSd();
 };
 

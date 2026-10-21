@@ -42,6 +42,7 @@ struct Release {
     asset: String,
     url: String,
     size: u64,
+    published_at: String,
 }
 
 /// GitHub releases of `owner/repo` that carry an `Onion-v*.zip` asset.
@@ -71,6 +72,7 @@ async fn list_releases(repo: String) -> Result<Vec<Release>, String> {
                     asset,
                     url: s(&a["browser_download_url"]),
                     size: a["size"].as_u64().unwrap_or(0),
+                    published_at: s(&r["published_at"]),
                 });
             }
         }
@@ -114,13 +116,91 @@ async fn install(
         (_, Some(f)) if !f.is_empty() => PathBuf::from(f),
         _ => return Err("Escolha uma versão ou um arquivo .zip".into()),
     };
-    let (app2, sd2) = (app.clone(), sd.clone());
+    let (app2, sd2, zip2) = (app.clone(), sd.clone(), zip_path.clone());
     tauri::async_runtime::spawn_blocking(move || {
-        extract(&zip_path, &sd2, &mut |done, total, msg| emit(&app2, "extract", done, total, msg))
+        extract(&zip2, &sd2, &mut |done, total, msg| emit(&app2, "extract", done, total, msg))
     })
     .await
     .map_err(e)??;
-    Ok(format!("Onion copiado para {}", sd.display()))
+    let mut msg = format!("Onion copiado para {}", sd.display());
+    if let Some(v) = zip_version(&zip_path) {
+        match set_label(&sd, &v) {
+            Ok(label) => msg.push_str(&format!(". Cartão renomeado para \"{label}\"")),
+            Err(err) => msg.push_str(&format!(". Não foi possível renomear o cartão: {err}")),
+        }
+    }
+    Ok(msg)
+}
+
+/// "4.4.0" out of ".../Onion-v4.4.0-bc52a504.zip" (or any Onion-vX.Y.Z... name).
+fn zip_version(zip_path: &Path) -> Option<String> {
+    let name = zip_path.file_name()?.to_str()?;
+    let rest = name.strip_prefix("Onion-v")?;
+    let v: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+    if v.is_empty() {
+        None
+    } else {
+        Some(v)
+    }
+}
+
+/// FAT32 label for a version: 11 chars max, no '.', so 4.4.0 -> "ONION 4-4-0".
+fn fat_label(version: &str) -> String {
+    let mut label = format!("ONION {}", version.replace('.', "-"));
+    label.truncate(11);
+    label
+}
+
+fn run(cmd: &mut std::process::Command) -> Result<(), String> {
+    let out = cmd.output().map_err(e)?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    }
+}
+
+/// Rename the volume mounted at `sd` after the installed version. Returns the label.
+fn set_label(sd: &Path, version: &str) -> Result<String, String> {
+    let label = fat_label(version);
+    let root = sd.to_string_lossy().to_string();
+    #[cfg(target_os = "windows")]
+    {
+        let drive = root.trim_end_matches(['\\', '/']).to_string(); // "F:"
+        // Only a drive root may be relabelled: never let `label` fall back to C:.
+        let is_root = drive.len() == 2 && drive.ends_with(':') && drive.chars().next().unwrap().is_ascii_alphabetic();
+        if !is_root {
+            return Err(format!("{root} não é a raiz de uma unidade"));
+        }
+        run(std::process::Command::new("cmd").args(["/C", "label", &drive, &label]))?;
+    }
+    #[cfg(target_os = "macos")]
+    run(std::process::Command::new("diskutil").args(["rename", &root, &label]))?;
+    #[cfg(target_os = "linux")]
+    run(std::process::Command::new("fatlabel").args([&root, &label]))?;
+    Ok(label)
+}
+
+/// Safely remove the card mounted at `path`.
+#[tauri::command]
+fn eject(path: String) -> Result<(), String> {
+    let root = path.trim_end_matches(['\\', '/']).to_string();
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            "(New-Object -ComObject Shell.Application).NameSpace(17).ParseName('{root}\\').InvokeVerb('Eject')"
+        );
+        run(std::process::Command::new("powershell").args(["-NoProfile", "-Command", &script]))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        run(std::process::Command::new("diskutil").args(["eject", &root]))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        run(std::process::Command::new("udisksctl").args(["unmount", "-p", &root]))
+            .or_else(|_| run(std::process::Command::new("umount").arg(&root)))
+    }
 }
 
 async fn download(app: &AppHandle, url: &str) -> Result<PathBuf, String> {
@@ -215,6 +295,15 @@ mod tests {
 
         fs::remove_dir_all(&tmp).unwrap();
     }
+
+    #[test]
+    fn version_and_label_from_zip_name() {
+        assert_eq!(zip_version(Path::new("C:/x/Onion-v4.4.0-bc52a504.zip")).as_deref(), Some("4.4.0"));
+        assert_eq!(zip_version(Path::new("Onion-v4.4.0-beta-20260120-3c0abdd7.zip")).as_deref(), Some("4.4.0"));
+        assert_eq!(zip_version(Path::new("other.zip")), None);
+        assert_eq!(fat_label("4.4.0"), "ONION 4-4-0");
+        assert!(fat_label("10.12.123").len() <= 11);
+    }
 }
 
 /// Headless mode: `onion-installer --sd <dir> (--file <zip> | --url <zip-url>)`.
@@ -244,6 +333,12 @@ fn cli(args: &[String]) -> Result<(), String> {
     };
     extract(&zip_path, &sd, &mut |d, t, m| eprintln!("[{d}/{t}] {m}"))?;
     println!("Onion copiado para {}", sd.display());
+    if let Some(v) = zip_version(&zip_path) {
+        match set_label(&sd, &v) {
+            Ok(label) => println!("Cartão renomeado para \"{label}\""),
+            Err(err) => eprintln!("aviso: não foi possível renomear o cartão: {err}"),
+        }
+    }
     Ok(())
 }
 
@@ -258,7 +353,7 @@ fn main() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![list_releases, sd_info, install])
+        .invoke_handler(tauri::generate_handler![list_releases, sd_info, install, eject])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

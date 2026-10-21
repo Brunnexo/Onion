@@ -1,7 +1,8 @@
 # Onion Installer (Tauri)
 
 Desktop installer: pick the SD card root, pick an Onion release (GitHub) or a
-local `Onion-v*.zip`, and the app unpacks it over the card. Onion's own
+local `Onion-v*.zip`, and the app unpacks it over the card, relabels the
+volume after the version (`ONION 4-4-0`) and offers to eject it. Onion's own
 on-device installer/updater finishes the job on the next boot.
 
 ## Build
