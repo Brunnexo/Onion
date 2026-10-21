@@ -30,6 +30,7 @@
 #define STATUS_FILE "/tmp/romdl_status"
 #define DONE_FILE "/tmp/romdl_done"
 #define PID_FILE "/tmp/romdl_pid"
+#define JOB_FILE "/tmp/romdl_job.sh"
 #define PAGE_SIZE 50
 #define MAX_LINKS 32
 
@@ -91,13 +92,17 @@ static void shell_quote(char *out, size_t out_size, const char *in)
 // exit code to DONE_FILE when finished.
 static void job_start(int kind, const char *title, const char *cmd)
 {
-    char full[8192];
     remove(STATUS_FILE);
     remove(DONE_FILE);
-    snprintf(full, sizeof(full),
-             "setsid sh -c 'echo $$ > " PID_FILE "; %s > " STATUS_FILE " 2>&1; echo $? > " DONE_FILE "' &",
-             cmd);
-    system(full);
+    // The command carries its own quoting, so it goes into a script file
+    // instead of being nested inside another quoted sh -c string.
+    FILE *fp = fopen(JOB_FILE, "w");
+    if (!fp)
+        return;
+    fprintf(fp, "#!/bin/sh\n%s\n", cmd);
+    fclose(fp);
+    // No setsid: the stock busybox may not have it. Cancel kills the helpers by name.
+    system("sh -c 'echo $$ > " PID_FILE "; sh " JOB_FILE " > " STATUS_FILE " 2>&1; echo $? > " DONE_FILE "' &");
     job = kind;
     strncpy(job_title, title, STR_MAX - 1);
     theme_clearDialogProgress();
@@ -105,7 +110,9 @@ static void job_start(int kind, const char *title, const char *cmd)
 
 static void job_cancel(void)
 {
-    system("kill -TERM -$(cat " PID_FILE " 2>/dev/null) 2>/dev/null");
+    system("kill $(cat " PID_FILE " 2>/dev/null) 2>/dev/null; "
+           "pkill -f romdl_job.sh; pkill -f rom_fetch.sh; pkill -f torrent_dl.sh; pkill -f romdb_update.sh; "
+           "pkill aria2c; pkill curl; rm -f /mnt/SDCARD/Roms/*/*.part");
     job = JOB_NONE;
 }
 
