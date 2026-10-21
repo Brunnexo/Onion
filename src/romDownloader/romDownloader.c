@@ -22,6 +22,7 @@
 #include "utils/log.h"
 #include "utils/sdl_init.h"
 
+#include "./bios.h"
 #include "./platforms.h"
 
 #define SYSDIR "/mnt/SDCARD/.tmp_update"
@@ -50,13 +51,14 @@ static uint32_t prog_prev_ticks = 0;
 
 enum { SCREEN_PLATFORMS,
        SCREEN_GAMES,
-       SCREEN_LINKS };
+       SCREEN_LINKS,
+       SCREEN_BIOS };
 enum { JOB_NONE,
        JOB_CATALOG,
        JOB_DOWNLOAD };
 
 static sqlite3 *db = NULL;
-static List list_platforms, list_games, list_links;
+static List list_platforms, list_games, list_links, list_bios;
 static int screen_level = SCREEN_PLATFORMS;
 static const Platform *cur_platform = NULL;
 static char cur_platform_name[STR_MAX];
@@ -173,6 +175,88 @@ static void catalog_update(void)
     job_start(JOB_CATALOG, "Catalog update", "sh " SYSDIR "/script/romdb_update.sh");
 }
 
+// ---------------------------------------------------------------- bios ---
+
+static bool bios_installed(const Bios *b)
+{
+    char path[STR_MAX];
+    snprintf(path, sizeof(path), BIOS_DIR "/%s", b->file);
+    return exists(path);
+}
+
+// `sh rom_fetch.sh http <url> <dest-dir> <file> '' 0` for one BIOS file.
+static void bios_fetch_cmd(char *out, size_t out_size, const Bios *b)
+{
+    char url[512], dest[STR_MAX], name[STR_MAX], q_url[1024], q_dest[STR_MAX * 2], q_name[STR_MAX * 2];
+    // archive.org accepts the file name as-is except for spaces
+    size_t n = snprintf(url, sizeof(url), "%s", BIOS_URL);
+    for (const char *p = b->remote; *p && n < sizeof(url) - 4; p++) {
+        if (*p == ' ') {
+            memcpy(url + n, "%20", 3);
+            n += 3;
+        }
+        else
+            url[n++] = *p;
+    }
+    url[n] = '\0';
+    const char *slash = strrchr(b->file, '/');
+    if (slash) {
+        snprintf(dest, sizeof(dest), BIOS_DIR "/%.*s", (int)(slash - b->file), b->file);
+        snprintf(name, sizeof(name), "%s", slash + 1);
+    }
+    else {
+        strcpy(dest, BIOS_DIR);
+        snprintf(name, sizeof(name), "%s", b->file);
+    }
+    shell_quote(q_url, sizeof(q_url), url);
+    shell_quote(q_dest, sizeof(q_dest), dest);
+    shell_quote(q_name, sizeof(q_name), name);
+    snprintf(out, out_size, "sh " SYSDIR "/script/rom_fetch.sh http %s %s %s '' 0", q_url, q_dest, q_name);
+}
+
+static void build_bios(void)
+{
+    list_free(&list_bios);
+    list_bios = list_createWithTitle(BIOS_COUNT + 1, LIST_SMALL, "Emulator BIOS");
+    ListItem all = {.action_id = -1};
+    strcpy(all.label, "Download all missing");
+    list_addItem(&list_bios, all);
+    for (int i = 0; i < BIOS_COUNT; i++) {
+        ListItem item = {.action_id = i};
+        snprintf(item.label, STR_MAX, "%s: %s  [%s]", BIOS_FILES[i].system, BIOS_FILES[i].file,
+                 lang_tr(bios_installed(&BIOS_FILES[i]) ? "installed" : "missing"));
+        list_addItem(&list_bios, item);
+    }
+}
+
+// idx >= 0: that file (even if present); idx < 0: every missing file in one job.
+static void bios_download(int idx)
+{
+    char cmd[8192] = "", one[2048];
+    size_t n = 0;
+    prog_total = 0;
+    if (idx >= 0) {
+        bios_fetch_cmd(cmd, sizeof(cmd), &BIOS_FILES[idx]);
+        prog_total = BIOS_FILES[idx].size;
+    }
+    else {
+        for (int i = 0; i < BIOS_COUNT; i++) {
+            if (bios_installed(&BIOS_FILES[i]))
+                continue;
+            bios_fetch_cmd(one, sizeof(one), &BIOS_FILES[i]);
+            n += snprintf(cmd + n, sizeof(cmd) - n, "%s%s", n ? "; " : "", one);
+            if (n >= sizeof(cmd) - 1)
+                break;
+        }
+        if (n == 0)
+            return; // nothing missing
+    }
+    prog_done = prog_prev = 0;
+    prog_speed = 0;
+    prog_prev_ticks = 0;
+    job_start(JOB_DOWNLOAD, "Downloading BIOS", cmd);
+}
+
 static void download_start(Link *link)
 {
     char q_url[2048], q_dest[STR_MAX * 2], q_name[STR_MAX * 2], q_tpath[2048], cmd[8192];
@@ -231,10 +315,13 @@ static int db_count(const char *sql, const char *p1, const char *p2, const char 
 static void build_platforms(void)
 {
     list_free(&list_platforms);
-    list_platforms = list_createWithTitle(PLATFORM_COUNT + 1, LIST_SMALL, "ROM Downloader");
+    list_platforms = list_createWithTitle(PLATFORM_COUNT + 2, LIST_SMALL, "ROM Downloader");
     ListItem update = {.action_id = -1};
     strcpy(update.label, db ? "Update catalog" : "Download catalog");
     list_addItem(&list_platforms, update);
+    ListItem bios = {.action_id = -2};
+    strcpy(bios.label, "Emulator BIOS");
+    list_addItem(&list_platforms, bios);
     if (!db)
         return;
     sqlite3_stmt *st;
@@ -424,6 +511,7 @@ static List *current_list(void)
     switch (screen_level) {
     case SCREEN_GAMES: return &list_games;
     case SCREEN_LINKS: return &list_links;
+    case SCREEN_BIOS: return &list_bios;
     default: return &list_platforms;
     }
 }
@@ -514,6 +602,11 @@ static void job_finish(void)
         build_platforms();
         screen_level = SCREEN_PLATFORMS;
     }
+    else if (screen_level == SCREEN_BIOS) {
+        int pos = list_bios.active_pos;
+        build_bios(); // refresh installed/missing flags
+        list_scrollTo(&list_bios, pos);
+    }
     snprintf(result_msg, sizeof(result_msg), "%s\n \n%s", lang_tr(rc == 0 ? "Done" : "Failed"), lang_tr(status));
     result_open = true;
 }
@@ -562,11 +655,16 @@ static bool handle_keys(void)
         ListItem *item = &list->items[list->active_pos];
         switch (screen_level) {
         case SCREEN_PLATFORMS:
-            if (item->action_id < 0)
+            if (item->action_id == -2) {
+                build_bios();
+                screen_level = SCREEN_BIOS;
+            }
+            else if (item->action_id < 0)
                 catalog_update();
             else
                 open_platform(item->action_id);
             break;
+        case SCREEN_BIOS: bios_download(item->action_id); break;
         case SCREEN_GAMES: open_game(item); break;
         case SCREEN_LINKS:
             if (item->action_id >= 0)
@@ -577,6 +675,8 @@ static bool handle_keys(void)
     else if (keystate[SW_BTN_B] == PRESSED) {
         if (screen_level == SCREEN_PLATFORMS)
             quit = true;
+        else if (screen_level == SCREEN_BIOS)
+            screen_level = SCREEN_PLATFORMS;
         else
             screen_level--;
     }
@@ -625,6 +725,7 @@ int main(int argc, char *argv[])
     list_free(&list_platforms);
     list_free(&list_games);
     list_free(&list_links);
+    list_free(&list_bios);
     SDL_FreeSurface(screen);
     TTF_Quit();
     SDL_Quit();
