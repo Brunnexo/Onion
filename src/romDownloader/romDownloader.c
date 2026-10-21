@@ -463,14 +463,18 @@ static void render(void)
             else
                 snprintf(speed_s, sizeof(speed_s), "%.0f KB/s", prog_speed / 1024.0);
             if (prog_total > 0)
-                snprintf(msg, sizeof(msg), "%s / %s  (%d%%)\n%s\n \n%s", done_s, total_s,
+                snprintf(msg, sizeof(msg), "%s / %s  (%d%%)\n%s\n%s", done_s, total_s,
                          (int)(100 * prog_done / prog_total), speed_s, lang_tr("B: cancel"));
             else
-                snprintf(msg, sizeof(msg), "%s\n%s\n \n%s", done_s, speed_s, lang_tr("B: cancel"));
+                snprintf(msg, sizeof(msg), "%s\n%s\n%s", done_s, speed_s, lang_tr("B: cancel"));
             theme_renderDialog(screen, job_title, msg, false);
-            // progress bar where the theme draws its dots
+            // progress bar near the bottom edge of the dialog box, below the text
+            // (the text block is centred at pop_bg.y + 160, so the theme's dot
+            // position at y=225 would overlap it)
+            SDL_Surface *pop_bg = resource_getSurface(POP_BG);
+            int box_y = (g_display.height - pop_bg->h) / 2;
             int w = 240 * g_scale, h = 10 * g_scale;
-            SDL_Rect bar = {(g_display.width - w) / 2, 225 * g_scale - h / 2, w, h};
+            SDL_Rect bar = {(g_display.width - w) / 2, box_y + pop_bg->h - 45 * g_scale - h / 2, w, h};
             SDL_FillRect(screen, &bar, SDL_MapRGB(screen->format, 0x40, 0x40, 0x40));
             if (prog_total > 0) {
                 SDL_Color c = theme()->grid.color;
