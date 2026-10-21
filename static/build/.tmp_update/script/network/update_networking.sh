@@ -103,12 +103,9 @@ check() {
         check_ntpstate &
     fi
 
-    if [ -f "$sysdir/.updateAvailable" ] && [ $is_booting -eq 1 ]; then
-        bootScreen Boot "Update available!"
-        sleep 1
-    elif [ "$has_wifi" -eq 1 ] && [ ! -f /tmp/update_checked ]; then
+    if [ "$has_wifi" -eq 1 ] && [ ! -f /tmp/update_checked ]; then
         touch /tmp/update_checked
-        $sysdir/script/ota_update.sh check &
+        $sysdir/script/ota_notify.sh &
     fi
 
     if [ "$is_booting" -eq 1 ] && [ "$force_wifi_on_startup" -eq 1 ] && wifi_disabled; then
