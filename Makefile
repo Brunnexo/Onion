@@ -188,6 +188,7 @@ external: $(CACHE)/.setup $(THIRD_PARTY_DIR)/RetroArch-patch/bin/retroarch_miyoo
 # SearchFilter
 	@$(ECHO) $(COLOR_BLUE)"\n-- Build SearchFilter"$(COLOR_NORMAL)
 	@cd $(THIRD_PARTY_DIR)/SearchFilter && make build && cp -a build/. $(BUILD_DIR)
+	@sed -i -e 's/"label":"Search"/"label":"Busca"/' -e 's/"description":"Search game library"/"description":"Buscar na biblioteca de jogos"/' $(BUILD_DIR)/App/Search/config.json
 	@cp -a $(BUILD_DIR)/App/Search/. "$(PACKAGES_APP_DEST)/Search (Find your games)/App/Search"
 	@mv -f $(BUILD_DIR)/App/Filter/* "$(PACKAGES_APP_DEST)/List shortcuts (Filter+Refresh)/App/Filter"
 	@rmdir $(BUILD_DIR)/App/Filter

@@ -1,6 +1,6 @@
 {
-    "label": "Tweaks",
+    "label": "Ajustes",
     "icon": "../../Icons/Default/app/tweaks.png",
     "launch": "launch.sh",
-    "description": "System tweaks and tools"
+    "description": "Ajustes e ferramentas do sistema"
 }

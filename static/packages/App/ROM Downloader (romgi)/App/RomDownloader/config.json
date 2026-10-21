@@ -1,6 +1,6 @@
 {
-	"label": "ROM Downloader",
+	"label": "Download de ROMs",
 	"icon": "/mnt/SDCARD/Icons/Default/app/otaupdate.png",
 	"launch": "launch.sh",
-	"description": "Browse and download ROMs (romgi catalog)"
+	"description": "Baixar jogos pelo Wi-Fi"
 }
