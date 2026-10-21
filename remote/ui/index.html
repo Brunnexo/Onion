@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onion Remote</title>
+<style>
+  :root {
+    --purple: #7147c2;
+    --purple-light: #9a7ae0;
+    --purple-dark: #4f2f93;
+    --bg: #141320;
+    --card: #1e1b2e;
+    --card-border: #2e2a44;
+    --text: #ece9f7;
+    --muted: #9b95b5;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; padding: 0 0 16px;
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: radial-gradient(1200px 500px at 50% -200px, #2a2047 0%, var(--bg) 60%);
+    color: var(--text);
+    user-select: none;
+  }
+  header { display: flex; align-items: center; gap: 16px; padding: 18px 24px 10px; }
+  header img { height: 42px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .sub strong { color: var(--text); font-weight: 600; font-size: 15px; display: block; }
+  main { padding: 0 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .wide { grid-column: 1 / -1; }
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px 14px; }
+  .card h2 {
+    margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--purple-light); display: flex; justify-content: space-between; align-items: center;
+  }
+  .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  input[type=text], select {
+    flex: 1; min-width: 0; padding: 7px 10px; font: inherit;
+    background: #14121f; color: var(--text); border: 1px solid var(--card-border); border-radius: 8px; outline: none;
+  }
+  input[type=text]:focus, select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(113,71,194,.25); }
+  input[type=checkbox] { accent-color: var(--purple); }
+  button {
+    padding: 7px 12px; font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--purple); color: #fff; border: 0; border-radius: 8px; transition: background .15s, transform .05s;
+  }
+  button:hover { background: var(--purple-light); }
+  button:active { transform: translateY(1px); }
+  button:disabled { background: #3a3652; color: #8a86a3; cursor: default; transform: none; }
+  button.secondary { background: #2c2842; color: var(--text); }
+  button.secondary:hover { background: #3a3556; }
+  button.danger { background: #5b2340; }
+  button.danger:hover { background: #7a2f56; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 4px; min-height: 18px; }
+  .hint.ok { color: var(--ok); } .hint.warn { color: var(--warn); } .hint.err { color: var(--err); }
+  .progress { height: 8px; background: #14121f; border-radius: 99px; overflow: hidden; border: 1px solid var(--card-border); }
+  .progress div { height: 100%; width: 0; background: linear-gradient(90deg, var(--purple-dark), var(--purple-light)); transition: width .15s; }
+  #files { height: 360px; overflow: auto; border: 1px solid var(--card-border); border-radius: 8px; background: #14121f; }
+  #files div { display: flex; gap: 8px; padding: 5px 10px; cursor: default; border-bottom: 1px solid #1c1a2a; }
+  #files div:hover { background: #221e36; }
+  #files div.sel { background: var(--purple-dark); }
+  #files .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #files .s { color: var(--muted); font-size: 12px; min-width: 70px; text-align: right; }
+  #screen { width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; border: 1px solid var(--card-border); display: block; outline: none; }
+  #screen:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(113,71,194,.25); }
+  .pad { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; }
+  .pad button, .btns button { padding: 6px 0; font-size: 12px; min-width: 44px; }
+  .btns { display: flex; gap: 4px; flex-wrap: wrap; align-content: flex-start; }
+  .input { display: flex; gap: 14px; margin-top: 8px; align-items: flex-start; }
+  #out { font: 12px/1.4 Consolas, monospace; color: var(--text); white-space: pre-wrap; max-height: 180px; min-height: 60px; overflow: auto;
+         background: #14121f; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin: 0; user-select: text; }
+  .disabled { opacity: .45; pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <img src="logo.png" alt="Onion">
+  <div class="sub"><strong>Remote</strong>Arquivos, tela e terminal do seu Miyoo Mini, em casa ou pela Internet</div>
+</header>
+
+<main>
+  <section class="card wide">
+    <h2>Conexão</h2>
+    <div class="row">
+      <input type="text" id="code" placeholder="IP do Miyoo (ex.: 192.168.0.20) ou código de pareamento usuário:senha@relay[:porta][/porta-do-túnel]">
+      <button id="connect">Conectar</button>
+    </div>
+    <div id="connStatus" class="hint">Ligue “SSH” (rede local) ou “Permitir acesso remoto” (relay) no Tweaks do Miyoo.</div>
+    <div class="row" id="pairRow" style="display:none">
+      <input type="text" id="pairCode" placeholder="Parear: usuário:senha@relay[:porta][/porta-do-túnel] — grava no Miyoo e liga o acesso remoto">
+      <button class="secondary" id="pair">Gravar no Miyoo</button>
+    </div>
+  </section>
+
+  <section class="card" id="filesCard">
+    <h2>Arquivos <span><button class="secondary" id="refresh" title="Atualizar">↻</button></span></h2>
+    <div class="row">
+      <button class="secondary" id="up" title="Pasta acima">↑</button>
+      <input type="text" id="path" value="/mnt/SDCARD">
+      <button class="secondary" id="go">Ir</button>
+    </div>
+    <div id="files"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="upload">Enviar…</button>
+      <button class="secondary" id="download" disabled>Baixar</button>
+      <button class="danger" id="delete" disabled>Excluir</button>
+      <input type="text" id="newdir" placeholder="nova pasta" style="max-width:160px">
+      <button class="secondary" id="mkdir">Criar</button>
+    </div>
+    <div class="progress"><div id="bar"></div></div>
+    <div id="fileStatus" class="hint"></div>
+  </section>
+
+  <section class="card" id="screenCard">
+    <h2>Tela <span>
+      <label><input type="checkbox" id="live"> ao vivo</label>
+      <select id="interval" style="flex:0;padding:3px 6px;margin:0 6px"><option value="1000">1 s</option><option value="2000" selected>2 s</option><option value="5000">5 s</option></select>
+      <button class="secondary" id="shot">Capturar</button>
+    </span></h2>
+    <img id="screen" tabindex="0" alt="Tela do Miyoo" title="Clique e use o teclado: setas, Z=A, X=B, A=X, S=Y, Q=L1, W=R1, Enter=START, Shift=SELECT, Esc=MENU">
+    <div class="input">
+      <div class="pad">
+        <span></span><button data-k="UP">↑</button><span></span>
+        <button data-k="LEFT">←</button><button data-k="DOWN">↓</button><button data-k="RIGHT">→</button>
+      </div>
+      <div class="btns">
+        <button data-k="A">A</button><button data-k="B">B</button><button data-k="X">X</button><button data-k="Y">Y</button>
+        <button data-k="L1">L1</button><button data-k="R1">R1</button><button data-k="L2">L2</button><button data-k="R2">R2</button>
+        <button data-k="SELECT">SELECT</button><button data-k="START">START</button><button data-k="MENU">MENU</button>
+        <button data-k="VOLDOWN">VOL−</button><button data-k="VOLUP">VOL+</button>
+      </div>
+    </div>
+    <div id="screenStatus" class="hint"></div>
+  </section>
+
+  <section class="card wide" id="termCard">
+    <h2>Terminal</h2>
+    <div class="row">
+      <input type="text" id="cmd" placeholder="comando (ex.: df -h /mnt/SDCARD)">
+      <button class="secondary" id="run">Executar</button>
+    </div>
+    <pre id="out"></pre>
+  </section>
+</main>
+
+<script>
+const { invoke } = window.__TAURI__.core;
+const { open, save, ask } = window.__TAURI__.dialog;
+const { listen } = window.__TAURI__.event;
+const $ = id => document.getElementById(id);
+const fmt = b => b >= 1e9 ? (b / 1e9).toFixed(2) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : b >= 1e3 ? (b / 1e3).toFixed(0) + ' kB' : b + ' B';
+const base = p => p.split('/').filter(Boolean).pop() || '';
+const join = (d, n) => (d.endsWith('/') ? d : d + '/') + n;
+let connected = false, entries = [], selected = -1, liveTimer = null, shotUrl = null;
+
+function status(id, text, cls) { $(id).textContent = text; $(id).className = 'hint ' + (cls || ''); }
+function setConnected(on) {
+  connected = on;
+  for (const c of ['filesCard', 'screenCard', 'termCard']) $(c).classList.toggle('disabled', !on);
+  $('connect').textContent = on ? 'Desconectar' : 'Conectar';
+  $('code').disabled = on;
+  if (!on) { $('pairRow').style.display = 'none'; $('live').checked = false; stopLive(); }
+}
+
+// --- connection
+$('connect').onclick = async () => {
+  if (connected) { await invoke('disconnect'); setConnected(false); status('connStatus', 'Desconectado.'); return; }
+  $('connect').disabled = true; status('connStatus', 'Conectando…');
+  try {
+    const c = await invoke('connect', { code: $('code').value });
+    setConnected(true);
+    status('connStatus', `Conectado ${c.relay ? 'pelo relay' : 'pela rede local'}` + (c.version ? ` — Onion ${c.version}` : ''), 'ok');
+    $('pairRow').style.display = c.relay ? 'none' : 'flex';
+    localStorage.setItem('code', $('code').value);
+    list();
+  } catch (err) { status('connStatus', 'Erro: ' + err, 'err'); }
+  $('connect').disabled = false;
+};
+$('code').value = localStorage.getItem('code') || '';
+$('code').onkeydown = ev => { if (ev.key === 'Enter') $('connect').click(); };
+
+$('pair').onclick = async () => {
+  try {
+    await invoke('pair', { code: $('pairCode').value });
+    status('connStatus', 'Relay gravado e túnel iniciado. Na próxima vez conecte com o mesmo código de pareamento.', 'ok');
+  } catch (err) { status('connStatus', 'Pareamento falhou: ' + err, 'err'); }
+};
+
+// --- files
+async function list(path) {
+  path = path || $('path').value.trim() || '/mnt/SDCARD';
+  try {
+    entries = await invoke('list_dir', { path });
+    $('path').value = path; selected = -1; $('download').disabled = $('delete').disabled = true;
+    const box = $('files'); box.innerHTML = '';
+    entries.forEach((en, i) => {
+      const d = document.createElement('div');
+      d.innerHTML = `<span>${en.dir ? '📁' : '📄'}</span><span class="n"></span><span class="s">${en.dir ? '' : fmt(en.size)}</span>`;
+      d.querySelector('.n').textContent = en.name;
+      d.onclick = () => select(i);
+      d.ondblclick = () => { if (en.dir) list(join(path, en.name)); };
+      box.appendChild(d);
+    });
+    status('fileStatus', `${entries.length} itens`);
+  } catch (err) { status('fileStatus', 'Erro: ' + err, 'err'); }
+}
+function select(i) {
+  selected = i;
+  [...$('files').children].forEach((d, j) => d.classList.toggle('sel', j === i));
+  $('download').disabled = !(i >= 0 && !entries[i].dir);
+  $('delete').disabled = i < 0;
+}
+$('go').onclick = () => list();
+$('refresh').onclick = () => list();
+$('path').onkeydown = ev => { if (ev.key === 'Enter') list(); };
+$('up').onclick = () => { const p = $('path').value.replace(/\/+$/, ''); list(p.substring(0, p.lastIndexOf('/')) || '/'); };
+
+listen('progress', ev => {
+  const p = ev.payload;
+  $('bar').style.width = (p.total ? Math.min(1, p.done / p.total) * 100 : 0) + '%';
+  status('fileStatus', `${base(p.msg)}: ${fmt(p.done)}${p.total ? ' / ' + fmt(p.total) : ''}`);
+});
+function busy(on) { for (const id of ['upload', 'download', 'delete', 'mkdir', 'refresh', 'go', 'up']) $(id).disabled = on; if (!on) select(selected); }
+
+$('upload').onclick = async () => {
+  const files = await open({ multiple: true, title: 'Enviar para ' + $('path').value });
+  if (!files || !files.length) return;
+  busy(true);
+  try {
+    for (const f of files) {
+      const name = f.split(/[\\/]/).pop();
+      await invoke('upload', { local: f, remote: join($('path').value, name) });
+    }
+    status('fileStatus', `${files.length} arquivo(s) enviado(s).`, 'ok');
+  } catch (err) { status('fileStatus', 'Erro ao enviar: ' + err, 'err'); }
+  busy(false); $('bar').style.width = '0'; list();
+};
+$('download').onclick = async () => {
+  const en = entries[selected]; if (!en) return;
+  const dest = await save({ defaultPath: en.name, title: 'Salvar ' + en.name });
+  if (!dest) return;
+  busy(true);
+  try {
+    await invoke('download', { remote: join($('path').value, en.name), local: dest, size: en.size });
+    status('fileStatus', `${en.name} salvo em ${dest}`, 'ok');
+  } catch (err) { status('fileStatus', 'Erro ao baixar: ' + err, 'err'); }
+  busy(false); $('bar').style.width = '0';
+};
+$('delete').onclick = async () => {
+  const en = entries[selected]; if (!en) return;
+  if (!await ask(`Excluir ${en.dir ? 'a pasta' : 'o arquivo'} "${en.name}" do Miyoo?`, { title: 'Onion Remote', kind: 'warning', okLabel: 'Excluir', cancelLabel: 'Cancelar' })) return;
+  try { await invoke('remove', { path: join($('path').value, en.name) }); list(); }
+  catch (err) { status('fileStatus', 'Erro ao excluir: ' + err, 'err'); }
+};
+$('mkdir').onclick = async () => {
+  const name = $('newdir').value.trim(); if (!name) return;
+  try { await invoke('mkdir', { path: join($('path').value, name) }); $('newdir').value = ''; list(); }
+  catch (err) { status('fileStatus', 'Erro ao criar pasta: ' + err, 'err'); }
+};
+
+// --- screen + input
+async function shot() {
+  if (!connected) return;
+  try {
+    const buf = await invoke('screen');
+    const url = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
+    $('screen').src = url;
+    if (shotUrl) URL.revokeObjectURL(shotUrl);
+    shotUrl = url;
+    status('screenStatus', 'Capturado às ' + new Date().toLocaleTimeString('pt-BR'));
+  } catch (err) { status('screenStatus', 'Erro: ' + err, 'err'); }
+}
+function stopLive() { clearTimeout(liveTimer); liveTimer = null; }
+async function liveLoop() {
+  if (!$('live').checked || !connected) return stopLive();
+  await shot();
+  liveTimer = setTimeout(liveLoop, +$('interval').value);
+}
+$('shot').onclick = shot;
+$('live').onchange = () => $('live').checked ? liveLoop() : stopLive();
+async function press(k) {
+  if (!connected) return;
+  try { await invoke('press', { key: k, holdMs: 120 }); if (!$('live').checked) setTimeout(shot, 300); }
+  catch (err) { status('screenStatus', 'Erro: ' + err, 'err'); }
+}
+document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => press(b.dataset.k));
+const keymap = { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', z: 'A', x: 'B', a: 'X', s: 'Y', q: 'L1', w: 'R1',
+                 Enter: 'START', Shift: 'SELECT', Escape: 'MENU' };
+$('screen').onkeydown = ev => { const k = keymap[ev.key] || keymap[ev.key.toLowerCase()]; if (k) { ev.preventDefault(); press(k); } };
+
+// --- terminal
+async function run() {
+  const cmd = $('cmd').value.trim(); if (!cmd || !connected) return;
+  $('out').textContent += '$ ' + cmd + '\n';
+  try { $('out').textContent += await invoke('run', { cmd }) + '\n'; }
+  catch (err) { $('out').textContent += 'erro: ' + err + '\n'; }
+  $('out').scrollTop = $('out').scrollHeight; $('cmd').value = '';
+}
+$('run').onclick = run;
+$('cmd').onkeydown = ev => { if (ev.key === 'Enter') run(); };
+
+setConnected(false);
+</script>
+</body>
+</html>

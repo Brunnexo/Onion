@@ -43,4 +43,6 @@ src/cpuclock/cpuclock
 
 /installer/src-tauri/target/
 /installer/src-tauri/gen/
+/remote/src-tauri/target/
+/remote/src-tauri/gen/
 src/romDownloader/romDownloader

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Onion Remote",
+  "version": "0.1.0",
+  "identifier": "org.onionui.remote",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      { "title": "Onion Remote", "width": 1040, "height": 760, "minWidth": 860, "minHeight": 640, "resizable": true, "theme": "Dark", "center": true }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico", "icons/icon.png"]
+  }
+}
