@@ -9,6 +9,7 @@
 
 #include <sqlite3/sqlite3.h>
 
+#include "components/kbinput_wrapper.h"
 #include "components/list.h"
 #include "system/display.h"
 #include "system/keymap_sw.h"
@@ -53,6 +54,8 @@ static int screen_level = SCREEN_PLATFORMS;
 static const Platform *cur_platform = NULL;
 static char cur_platform_name[STR_MAX];
 static int cur_page = 0, cur_total = 0;
+static char cur_search[STR_MAX] = "";
+static char cur_pattern[STR_MAX + 2] = "%"; // LIKE pattern: %<cur_search>%
 static char cur_slug[STR_MAX], cur_title[STR_MAX];
 static Link links[MAX_LINKS];
 static int job = JOB_NONE;
@@ -172,7 +175,7 @@ static bool db_open(void)
     return true;
 }
 
-static int db_count(const char *sql, const char *p1, const char *p2)
+static int db_count(const char *sql, const char *p1, const char *p2, const char *p3)
 {
     sqlite3_stmt *st;
     int n = 0;
@@ -182,6 +185,8 @@ static int db_count(const char *sql, const char *p1, const char *p2)
         sqlite3_bind_text(st, 1, p1, -1, SQLITE_TRANSIENT);
     if (p2)
         sqlite3_bind_text(st, 2, p2, -1, SQLITE_TRANSIENT);
+    if (p3)
+        sqlite3_bind_text(st, 3, p3, -1, SQLITE_TRANSIENT);
     if (sqlite3_step(st) == SQLITE_ROW)
         n = sqlite3_column_int(st, 0);
     sqlite3_finalize(st);
@@ -219,18 +224,22 @@ static void load_games_page(int page)
     list_free(&list_games);
     list_games = list_createWithTitle(PAGE_SIZE, LIST_SMALL, "");
     int pages = (cur_total + PAGE_SIZE - 1) / PAGE_SIZE;
-    snprintf(list_games.title, STR_MAX, "%.200s  %d/%d", cur_platform_name, page + 1, pages > 0 ? pages : 1);
+    if (cur_search[0])
+        snprintf(list_games.title, STR_MAX, "%.120s \"%.60s\"  %d/%d", cur_platform_name, cur_search, page + 1, pages > 0 ? pages : 1);
+    else
+        snprintf(list_games.title, STR_MAX, "%.200s  %d/%d", cur_platform_name, page + 1, pages > 0 ? pages : 1);
 
     sqlite3_stmt *st;
     const char *sql =
         "SELECT e.slug, e.title, (SELECT group_concat(r.name, ', ') FROM regions_entries re "
         "JOIN regions r ON r.id = re.region WHERE re.entry = e.slug) "
-        "FROM entries e WHERE e.platform = ? ORDER BY e.title COLLATE NOCASE, e.slug LIMIT ? OFFSET ?";
+        "FROM entries e WHERE e.platform = ? AND e.title LIKE ? ORDER BY e.title COLLATE NOCASE, e.slug LIMIT ? OFFSET ?";
     if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
         return;
     sqlite3_bind_text(st, 1, cur_platform->id, -1, SQLITE_STATIC);
-    sqlite3_bind_int(st, 2, PAGE_SIZE);
-    sqlite3_bind_int(st, 3, page * PAGE_SIZE);
+    sqlite3_bind_text(st, 2, cur_pattern, -1, SQLITE_STATIC);
+    sqlite3_bind_int(st, 3, PAGE_SIZE);
+    sqlite3_bind_int(st, 4, page * PAGE_SIZE);
     while (sqlite3_step(st) == SQLITE_ROW) {
         ListItem item = {0};
         const char *regions = (const char *)sqlite3_column_text(st, 2);
@@ -255,9 +264,27 @@ static void open_platform(int idx)
             strncpy(cur_platform_name, (const char *)sqlite3_column_text(st, 0), STR_MAX - 1);
         sqlite3_finalize(st);
     }
-    cur_total = db_count("SELECT COUNT(*) FROM entries WHERE platform = ?", cur_platform->id, NULL);
+    cur_search[0] = '\0';
+    strcpy(cur_pattern, "%");
+    cur_total = db_count("SELECT COUNT(*) FROM entries WHERE platform = ? AND title LIKE ?", cur_platform->id, cur_pattern, NULL);
     load_games_page(0);
     screen_level = SCREEN_GAMES;
+}
+
+// SELECT on the game list: on-screen keyboard, then filter titles by substring.
+static void games_search(void)
+{
+    const char *typed = launch_keyboard(cur_search, "Buscar");
+    // libkbinput re-creates the SDL video surface: take the new one and
+    // restore our key-repeat settings.
+    video = SDL_SetVideoMode(g_display.width, g_display.height, 32, SDL_HWSURFACE);
+    SDL_EnableKeyRepeat(300, 50);
+    if (!typed)
+        return;
+    strncpy(cur_search, typed, STR_MAX - 1);
+    snprintf(cur_pattern, sizeof(cur_pattern), "%%%s%%", cur_search);
+    cur_total = db_count("SELECT COUNT(*) FROM entries WHERE platform = ? AND title LIKE ?", cur_platform->id, cur_pattern, NULL);
+    load_games_page(0);
 }
 
 static int games_index(void) { return cur_page * PAGE_SIZE + list_games.active_pos; }
@@ -277,12 +304,13 @@ static char games_letter_at(int idx)
 {
     sqlite3_stmt *st;
     char c = 0;
-    const char *sql = "SELECT upper(substr(title, 1, 1)) FROM entries WHERE platform = ? "
+    const char *sql = "SELECT upper(substr(title, 1, 1)) FROM entries WHERE platform = ? AND title LIKE ? "
                       "ORDER BY title COLLATE NOCASE, slug LIMIT 1 OFFSET ?";
     if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
         return 0;
     sqlite3_bind_text(st, 1, cur_platform->id, -1, SQLITE_STATIC);
-    sqlite3_bind_int(st, 2, idx);
+    sqlite3_bind_text(st, 2, cur_pattern, -1, SQLITE_STATIC);
+    sqlite3_bind_int(st, 3, idx);
     if (sqlite3_step(st) == SQLITE_ROW && sqlite3_column_text(st, 0))
         c = sqlite3_column_text(st, 0)[0];
     sqlite3_finalize(st);
@@ -293,9 +321,9 @@ static char games_letter_at(int idx)
 static int games_letter_index(char c, bool after)
 {
     char letter[2] = {c, 0};
-    return db_count(after ? "SELECT COUNT(*) FROM entries WHERE platform = ? AND upper(substr(title, 1, 1)) <= ?"
-                          : "SELECT COUNT(*) FROM entries WHERE platform = ? AND upper(substr(title, 1, 1)) < ?",
-                    cur_platform->id, letter);
+    return db_count(after ? "SELECT COUNT(*) FROM entries WHERE platform = ? AND upper(substr(title, 1, 1)) <= ? AND title LIKE ?"
+                          : "SELECT COUNT(*) FROM entries WHERE platform = ? AND upper(substr(title, 1, 1)) < ? AND title LIKE ?",
+                    cur_platform->id, letter, cur_pattern);
 }
 
 static void games_next_letter(void)
@@ -367,7 +395,7 @@ static void render(void)
     theme_renderList(screen, list);
     theme_renderFooter(screen);
     if (screen_level == SCREEN_GAMES) {
-        theme_renderStandardHint(screen, "SELECT", "BACK   L/R: LETTER   L2/R2: PAGE");
+        theme_renderStandardHint(screen, "SELECT", "BACK   SELECT: SEARCH   L/R: LETTER   L2/R2: PAGE");
         theme_renderFooterStatus(screen, cur_total ? games_index() + 1 : 0, cur_total);
     }
     else {
@@ -454,6 +482,8 @@ static bool handle_keys(void)
         games_goto((cur_page + 1) * PAGE_SIZE);
     else if (screen_level == SCREEN_GAMES && keystate[SW_BTN_L2] == PRESSED)
         games_goto((cur_page - 1) * PAGE_SIZE);
+    else if (screen_level == SCREEN_GAMES && keystate[SW_BTN_SELECT] == PRESSED)
+        games_search();
     else if (keystate[SW_BTN_A] == PRESSED && list->item_count > 0) {
         ListItem *item = &list->items[list->active_pos];
         switch (screen_level) {

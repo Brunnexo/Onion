@@ -300,6 +300,7 @@
     "SELECT": "SELECIONAR",
     "BACK": "VOLTAR",
     "BACK   L/R: LETTER   L2/R2: PAGE": "VOLTAR   L/R: LETRA   L2/R2: PÁGINA",
+    "BACK   SELECT: SEARCH   L/R: LETTER   L2/R2: PAGE": "VOLTAR   SELECT: BUSCAR   L/R: LETRA   L2/R2: PÁGINA",
     "Download?": "Baixar?",
     "Starting...": "Iniciando...",
     "B: cancel": "B: cancelar",
