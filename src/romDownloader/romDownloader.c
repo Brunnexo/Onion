@@ -279,6 +279,12 @@ static void games_search(void)
     // restore our key-repeat settings.
     video = SDL_SetVideoMode(g_display.width, g_display.height, 32, SDL_HWSURFACE);
     SDL_EnableKeyRepeat(300, 50);
+    // The keyboard consumed the key-up events, so every key we saw pressed
+    // would stay PRESSED and re-trigger on the next event: reset all of them.
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev))
+        ;
+    memset(keystate, RELEASED, sizeof(keystate));
     if (!typed)
         return;
     strncpy(cur_search, typed, STR_MAX - 1);
