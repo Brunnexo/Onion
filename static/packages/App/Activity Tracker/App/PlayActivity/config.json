@@ -1,6 +1,6 @@
 {
-"label":"Activity Tracker",
+"label":"Atividade",
 "icon":"../../Icons/Default/app/activity.png",
 "launch":"launch.sh",
-"description":"Track your play activity"
+"description":"Acompanhar seu tempo de jogo"
 }

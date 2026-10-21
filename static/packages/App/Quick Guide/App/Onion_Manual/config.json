@@ -1,6 +1,6 @@
 {
-"label":"Quick Guide",
+"label":"Guia rápido",
 "icon":"../../Icons/Default/app/manual.png",
 "launch":"launch.sh",
-"description":"Getting started with Onion"
+"description":"Primeiros passos com o Onion"
 }
