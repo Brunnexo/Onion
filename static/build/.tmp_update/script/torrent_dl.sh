@@ -35,7 +35,7 @@ case "$src" in
     http://*|https://*)
         torrent="$tmp/src.torrent"
         log "fetching torrent $src"
-        curl -sfL --retry 3 -o "$torrent" "$src" || { echo "Failed to fetch torrent"; exit 2; }
+        curl -ksfL --retry 3 -o "$torrent" "$src" || { echo "Failed to fetch torrent"; exit 2; }
         ;;
     *) torrent="$src" ;;
 esac

@@ -448,6 +448,8 @@ static void job_finish(void)
     job_status(status, sizeof(status));
     int kind = job;
     job = JOB_NONE;
+    // Keep the full job output on the SD card for troubleshooting.
+    system("cp " STATUS_FILE " " SYSDIR "/logs/romdl.log 2>/dev/null");
     if (kind == JOB_CATALOG) {
         db_open();
         build_platforms();
