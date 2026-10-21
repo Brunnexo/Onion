@@ -137,7 +137,10 @@ get_release_info() {
 	Release_Date=$(echo $Release_asset | jq -r '.created_at')
 	Release_info=$(echo $Release_assets_info | jq '.body')
 
-	Current_FullVersion=$(installUI --version)
+	# installUI only lives in the installer dir (not in PATH at runtime); the
+	# installed version is recorded in onionVersion/version.txt.
+	Current_FullVersion=$(sed 's/^v//' "$sysdir/onionVersion/version.txt" 2> /dev/null)
+	[ -n "$Current_FullVersion" ] || Current_FullVersion=$(/mnt/SDCARD/miyoo/app/.tmp_update/bin/installUI --version 2> /dev/null)
 	Current_Version=$(echo $Current_FullVersion | sed 's/-.*$//g')
 
 	echo -e "${GREEN}DONE${NC}"
