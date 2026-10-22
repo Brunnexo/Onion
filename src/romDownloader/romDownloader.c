@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <SDL/SDL_rotozoom.h>
 #include <sqlite3/sqlite3.h>
 
 #include "components/kbinput_wrapper.h"
@@ -21,6 +22,7 @@
 #include "utils/keystate.h"
 #include "utils/log.h"
 #include "utils/sdl_init.h"
+#include "utils/surfaceSetAlpha.h"
 
 #include "./bios.h"
 #include "./platforms.h"
@@ -312,32 +314,149 @@ static int db_count(const char *sql, const char *p1, const char *p2, const char 
     return n;
 }
 
+#define ICON_PACK_FILE SYSDIR "/config/active_icon_pack"
+#define ICON_PACK_DEFAULT "/mnt/SDCARD/Icons/Default"
+#define ICON_BIG 150
+#define ICON_SMALL 100
+#define ICON_STEP 170
+
+// Scaled icons for the platform carousel, one pair per list item.
+static SDL_Surface *icon_big[PLATFORM_COUNT + 2], *icon_small[PLATFORM_COUNT + 2];
+
+static void icons_free(void)
+{
+    for (int i = 0; i < PLATFORM_COUNT + 2; i++) {
+        if (icon_big[i])
+            SDL_FreeSurface(icon_big[i]);
+        if (icon_small[i])
+            SDL_FreeSurface(icon_small[i]);
+        icon_big[i] = icon_small[i] = NULL;
+    }
+}
+
+// `name` is "<icon>" or "app/<icon>"; the active icon pack wins, Default otherwise.
+static SDL_Surface *icon_load(const char *name)
+{
+    char path[STR_MAX];
+    char *pack = file_read(ICON_PACK_FILE);
+    SDL_Surface *img = NULL;
+    if (pack) {
+        char *p = pack + strlen(pack);
+        while (p > pack && (p[-1] == '\n' || p[-1] == '\r' || p[-1] == ' '))
+            *--p = '\0';
+        if (pack[0]) {
+            snprintf(path, sizeof(path), "%s/%s.png", pack, name);
+            img = IMG_Load(path);
+        }
+        free(pack);
+    }
+    if (!img) {
+        snprintf(path, sizeof(path), ICON_PACK_DEFAULT "/%s.png", name);
+        img = IMG_Load(path);
+    }
+    return img;
+}
+
+static SDL_Surface *icon_scaled(SDL_Surface *src, int height, Uint8 alpha)
+{
+    double f = (double)height * g_scale / src->h;
+    SDL_Surface *out = zoomSurface(src, f, f, 1);
+    if (out && alpha < 255)
+        surfaceSetAlpha(out, alpha);
+    return out;
+}
+
+static void icons_ensure(int i)
+{
+    if (icon_big[i] || i >= list_platforms.item_count)
+        return;
+    SDL_Surface *src = icon_load(list_platforms.items[i].payload);
+    if (!src)
+        return;
+    icon_big[i] = icon_scaled(src, ICON_BIG, 255);
+    icon_small[i] = icon_scaled(src, ICON_SMALL, 110);
+    SDL_FreeSurface(src);
+}
+
 static void build_platforms(void)
 {
     list_free(&list_platforms);
+    icons_free();
     list_platforms = list_createWithTitle(PLATFORM_COUNT + 2, LIST_SMALL, "ROM Downloader");
-    ListItem update = {.action_id = -1};
-    strcpy(update.label, db ? "Update catalog" : "Download catalog");
-    list_addItem(&list_platforms, update);
-    ListItem bios = {.action_id = -2};
-    strcpy(bios.label, "Emulator BIOS");
-    list_addItem(&list_platforms, bios);
-    if (!db)
-        return;
-    sqlite3_stmt *st;
-    const char *sql = "SELECT p.name, (SELECT COUNT(*) FROM entries e WHERE e.platform = p.id) FROM platforms p WHERE p.id = ?";
-    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
-        return;
-    for (int i = 0; i < PLATFORM_COUNT; i++) {
-        sqlite3_reset(st);
-        sqlite3_bind_text(st, 1, PLATFORMS[i].id, -1, SQLITE_STATIC);
-        if (sqlite3_step(st) != SQLITE_ROW || sqlite3_column_int(st, 1) == 0)
-            continue;
-        ListItem item = {.action_id = i};
-        snprintf(item.label, STR_MAX, "%s (%d)", sqlite3_column_text(st, 0), sqlite3_column_int(st, 1));
-        list_addItem(&list_platforms, item);
+    if (db) {
+        sqlite3_stmt *st;
+        const char *sql = "SELECT p.name, (SELECT COUNT(*) FROM entries e WHERE e.platform = p.id) FROM platforms p WHERE p.id = ?";
+        if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) == SQLITE_OK) {
+            for (int i = 0; i < PLATFORM_COUNT; i++) {
+                sqlite3_reset(st);
+                sqlite3_bind_text(st, 1, PLATFORMS[i].id, -1, SQLITE_STATIC);
+                if (sqlite3_step(st) != SQLITE_ROW || sqlite3_column_int(st, 1) == 0)
+                    continue;
+                ListItem item = {.action_id = i, .value = sqlite3_column_int(st, 1)};
+                strncpy(item.label, (const char *)sqlite3_column_text(st, 0), STR_MAX - 1);
+                strncpy(item.payload, PLATFORMS[i].icon, STR_MAX - 1);
+                list_addItem(&list_platforms, item);
+            }
+            sqlite3_finalize(st);
+        }
     }
-    sqlite3_finalize(st);
+    ListItem bios = {.action_id = -2, .value = -1};
+    strcpy(bios.label, "Emulator BIOS");
+    strcpy(bios.payload, "app/pacman");
+    list_addItem(&list_platforms, bios);
+    ListItem update = {.action_id = -1, .value = -1};
+    strcpy(update.label, db ? "Update catalog" : "Download catalog");
+    strcpy(update.payload, "app/otaupdate");
+    list_addItem(&list_platforms, update);
+}
+
+// Horizontal icon strip: the active item big in the centre, neighbours small and dimmed.
+static void render_carousel(void)
+{
+    List *l = &list_platforms;
+    int n = l->item_count;
+    if (n == 0)
+        return;
+    int cx = g_display.width / 2, cy = 205 * g_scale;
+    int span = n >= 5 ? 2 : (n - 1) / 2;
+    for (int off = -span; off <= span; off++) {
+        if (off == 0)
+            continue;
+        int i = _list_modulo(l->active_pos + off, n);
+        if (n < 5 && i == l->active_pos)
+            continue;
+        icons_ensure(i);
+        SDL_Surface *img = icon_small[i];
+        if (!img)
+            continue;
+        SDL_Rect r = {cx + off * ICON_STEP * g_scale - img->w / 2, cy - img->h / 2};
+        SDL_BlitSurface(img, NULL, screen, &r);
+    }
+    icons_ensure(l->active_pos);
+    SDL_Surface *img = icon_big[l->active_pos];
+    if (img) {
+        SDL_Rect r = {cx - img->w / 2, cy - img->h / 2};
+        SDL_BlitSurface(img, NULL, screen, &r);
+    }
+
+    ListItem *it = &l->items[l->active_pos];
+    SDL_Surface *name = TTF_RenderUTF8_Blended(resource_getFont(TITLE), lang_tr(it->label), theme()->title.color);
+    if (name) {
+        SDL_Rect r = {cx - name->w / 2, 300 * g_scale};
+        SDL_BlitSurface(name, NULL, screen, &r);
+        SDL_FreeSurface(name);
+    }
+    char sub[STR_MAX];
+    if (it->value >= 0)
+        snprintf(sub, sizeof(sub), "%d %s", it->value, lang_tr("games"));
+    else
+        strcpy(sub, " ");
+    SDL_Surface *s = TTF_RenderUTF8_Blended(resource_getFont(LIST), sub, theme()->list.color);
+    if (s) {
+        SDL_Rect r = {cx - s->w / 2, 340 * g_scale};
+        SDL_BlitSurface(s, NULL, screen, &r);
+        SDL_FreeSurface(s);
+    }
 }
 
 static void load_games_page(int page)
@@ -522,7 +641,10 @@ static void render(void)
 {
     List *list = current_list();
     theme_renderHeader(screen, list->title, screen_level == SCREEN_PLATFORMS);
-    theme_renderList(screen, list);
+    if (screen_level == SCREEN_PLATFORMS)
+        render_carousel();
+    else
+        theme_renderList(screen, list);
     theme_renderFooter(screen);
     if (screen_level == SCREEN_GAMES) {
         theme_renderStandardHint(screen, "SELECT", "BACK   SELECT: SEARCH   L/R: LETTER   L2/R2: PAGE");
@@ -637,7 +759,11 @@ static bool handle_keys(void)
     }
 
     List *list = current_list();
-    if (keystate[SW_BTN_UP] >= PRESSED)
+    if (screen_level == SCREEN_PLATFORMS && (keystate[SW_BTN_LEFT] >= PRESSED || keystate[SW_BTN_UP] >= PRESSED))
+        list->active_pos = _list_modulo(list->active_pos - 1, list->item_count);
+    else if (screen_level == SCREEN_PLATFORMS && (keystate[SW_BTN_RIGHT] >= PRESSED || keystate[SW_BTN_DOWN] >= PRESSED))
+        list->active_pos = _list_modulo(list->active_pos + 1, list->item_count);
+    else if (keystate[SW_BTN_UP] >= PRESSED)
         list_keyUp(list, keystate[SW_BTN_UP] == REPEATING);
     else if (keystate[SW_BTN_DOWN] >= PRESSED)
         list_keyDown(list, keystate[SW_BTN_DOWN] == REPEATING);
@@ -726,6 +852,7 @@ int main(int argc, char *argv[])
     list_free(&list_games);
     list_free(&list_links);
     list_free(&list_bios);
+    icons_free();
     SDL_FreeSurface(screen);
     TTF_Quit();
     SDL_Quit();
