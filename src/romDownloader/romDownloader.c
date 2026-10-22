@@ -414,6 +414,11 @@ static void build_platforms(void)
 static void render_carousel(void)
 {
     List *l = &list_platforms;
+    // theme_renderList repaints the area between header and footer with the
+    // theme background every frame; do the same here or icons pile up.
+    SDL_Rect area = {0, 60 * g_scale, 640 * g_scale, 360 * g_scale};
+    SDL_Rect pos = {0, 60 * g_scale};
+    SDL_BlitSurface(theme_background(), &area, screen, &pos);
     int n = l->item_count;
     if (n == 0)
         return;
