@@ -334,10 +334,13 @@ static void icons_free(void)
     }
 }
 
-// `name` is "<icon>" or "app/<icon>"; the active icon pack wins, Default otherwise.
-static SDL_Surface *icon_load(const char *name)
+// `names` is one or more "<icon>" / "app/<icon>" alternatives separated by
+// '|': the first one the active icon pack ships wins, so an app icon the theme
+// does not know (otaupdate) can fall back to one it does (pacman) and still
+// look themed; the Default pack is used only when the pack has none of them.
+static SDL_Surface *icon_load(const char *names)
 {
-    char path[STR_MAX];
+    char path[STR_MAX], list[STR_MAX];
     char *pack = file_read(ICON_PACK_FILE);
     SDL_Surface *img = NULL;
     if (pack) {
@@ -345,13 +348,19 @@ static SDL_Surface *icon_load(const char *name)
         while (p > pack && (p[-1] == '\n' || p[-1] == '\r' || p[-1] == ' '))
             *--p = '\0';
         if (pack[0]) {
-            snprintf(path, sizeof(path), "%s/%s.png", pack, name);
-            img = IMG_Load(path);
+            strncpy(list, names, STR_MAX - 1);
+            list[STR_MAX - 1] = '\0';
+            for (char *name = strtok(list, "|"); name && !img; name = strtok(NULL, "|")) {
+                snprintf(path, sizeof(path), "%s/%s.png", pack, name);
+                img = IMG_Load(path);
+            }
         }
         free(pack);
     }
     if (!img) {
-        snprintf(path, sizeof(path), ICON_PACK_DEFAULT "/%s.png", name);
+        strncpy(list, names, STR_MAX - 1);
+        list[STR_MAX - 1] = '\0';
+        snprintf(path, sizeof(path), ICON_PACK_DEFAULT "/%s.png", strtok(list, "|"));
         img = IMG_Load(path);
     }
     return img;
@@ -406,7 +415,7 @@ static void build_platforms(void)
     list_addItem(&list_platforms, bios);
     ListItem update = {.action_id = -1, .value = -1};
     strcpy(update.label, db ? "Update catalog" : "Download catalog");
-    strcpy(update.payload, "app/otaupdate");
+    strcpy(update.payload, "app/otaupdate|app/pacman");
     list_addItem(&list_platforms, update);
 }
 
