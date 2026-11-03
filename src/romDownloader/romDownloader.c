@@ -415,7 +415,7 @@ static void build_platforms(void)
     list_addItem(&list_platforms, bios);
     ListItem update = {.action_id = -1, .value = -1};
     strcpy(update.label, db ? "Update catalog" : "Download catalog");
-    strcpy(update.payload, "app/otaupdate|app/pacman");
+    strcpy(update.payload, "app/search|app/pacman");
     list_addItem(&list_platforms, update);
 }
 
